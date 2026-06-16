@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vue-tsc --noEmit && vite build",
+    "type-check": "vue-tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -21,8 +22,11 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
     "@tauri-apps/cli": "^2",
+    "@types/node": "^25.9.3",
     "@vitejs/plugin-vue": "^5.2.1",
     "tailwindcss": "^4.3.1",
-    "vite": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "^6.0.3",
+    "vue-tsc": "^3.3.5"
   }
 }

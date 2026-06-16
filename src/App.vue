@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import { storeToRefs } from "pinia";
 import { invoke } from "@tauri-apps/api/core";
@@ -16,8 +16,8 @@ import TabPanels from "primevue/tabpanels";
 import TabPanel from "primevue/tabpanel";
 import Dialog from "primevue/dialog";
 
-import { usePatcherStore } from "./stores/patcher.js";
-import { PRESETS } from "./utils/hex.js";
+import { usePatcherStore, type PatchResult } from "./stores/patcher";
+import { PRESETS } from "./utils/hex";
 
 const store = usePatcherStore();
 const {
@@ -57,7 +57,7 @@ async function confirmPatch() {
   busy.value = true;
   lastResult.value = null;
   try {
-    const result = await invoke("patch_exe", {
+    const result = await invoke<PatchResult>("patch_exe", {
       path: filePath.value,
       search: store.searchBytes,
       replace: store.replaceBytes,
@@ -139,7 +139,6 @@ async function confirmPatch() {
                   :use-grouping="false"
                   :min="1"
                   class="w-32"
-                  show-buttons="false"
                 />
                 <span class="text-surface-500">×</span>
                 <InputNumber

@@ -6,12 +6,41 @@ import {
   bytesToHex,
   aspectToHex,
   presetHexById,
-} from "../utils/hex.js";
+} from "../utils/hex";
+
+export type PatchMode = "preset" | "calculator" | "custom";
+
+/** Shape returned by the Rust `patch_exe` command. */
+export interface PatchResult {
+  count: number;
+  backup_path: string;
+}
+
+/** UI-facing result of the last patch attempt. */
+export interface LastResult {
+  ok: boolean;
+  count?: number;
+  backupPath?: string;
+  message: string;
+}
+
+interface PatcherState {
+  filePath: string;
+  mode: PatchMode;
+  sourceHex: string;
+  presetId: string;
+  calcWidth: number;
+  calcHeight: number;
+  customSearchHex: string;
+  customReplaceHex: string;
+  busy: boolean;
+  lastResult: LastResult | null;
+}
 
 export const usePatcherStore = defineStore("patcher", {
-  state: () => ({
+  state: (): PatcherState => ({
     filePath: "",
-    mode: "preset", // "preset" | "calculator" | "custom"
+    mode: "preset",
 
     // Shared "search for" pattern used by preset + calculator modes.
     sourceHex: SOURCE_16_9,
@@ -28,32 +57,31 @@ export const usePatcherStore = defineStore("patcher", {
     customReplaceHex: "",
 
     busy: false,
-    // { ok: boolean, count?, backupPath?, message }
     lastResult: null,
   }),
 
   getters: {
     // The effective search/replace hex strings for the active mode.
-    effectiveSearchHex(state) {
-      return state.mode === "custom" ? state.customSearchHex : state.sourceHex;
-    },
-    effectiveReplaceHex(state) {
+    effectiveSearchHex: (state): string =>
+      state.mode === "custom" ? state.customSearchHex : state.sourceHex,
+
+    effectiveReplaceHex: (state): string => {
       if (state.mode === "preset") return presetHexById(state.presetId);
       if (state.mode === "calculator")
         return aspectToHex(state.calcWidth, state.calcHeight);
       return state.customReplaceHex;
     },
 
-    searchBytes() {
+    searchBytes(): number[] | null {
       return parseHex(this.effectiveSearchHex);
     },
-    replaceBytes() {
+    replaceBytes(): number[] | null {
       return parseHex(this.effectiveReplaceHex);
     },
 
     // null when valid, otherwise a human-readable reason the form can't be submitted.
-    validationError(state) {
-      if (!state.filePath) return "Choose a game .exe first.";
+    validationError(): string | null {
+      if (!this.filePath) return "Choose a game .exe first.";
       const s = this.searchBytes;
       const r = this.replaceBytes;
       if (!s) return "Search bytes are not valid hex.";
@@ -62,13 +90,13 @@ export const usePatcherStore = defineStore("patcher", {
         return `Search (${s.length} bytes) and replace (${r.length} bytes) must be the same length.`;
       return null;
     },
-    canPatch() {
+    canPatch(): boolean {
       return !this.busy && this.validationError === null;
     },
   },
 
   actions: {
-    formatResult(result) {
+    formatResult(result: PatchResult) {
       this.lastResult = {
         ok: true,
         count: result.count,
@@ -78,15 +106,15 @@ export const usePatcherStore = defineStore("patcher", {
         }.`,
       };
     },
-    setError(message) {
+    setError(message: unknown) {
       this.lastResult = { ok: false, message: String(message) };
     },
     // Helpers used by the confirmation dialog.
-    prettySearch() {
-      return bytesToHex(this.searchBytes || []);
+    prettySearch(): string {
+      return bytesToHex(this.searchBytes ?? []);
     },
-    prettyReplace() {
-      return bytesToHex(this.replaceBytes || []);
+    prettyReplace(): string {
+      return bytesToHex(this.replaceBytes ?? []);
     },
   },
 });
