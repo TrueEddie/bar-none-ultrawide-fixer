@@ -1,0 +1,19 @@
+/* Declare the cascade-layer order BEFORE importing Tailwind so PrimeVue's
+   component styles sit between Tailwind's base (preflight) and utilities.
+   This lets PrimeVue style its components, while Tailwind utility classes can
+   still override them. Order must reference Tailwind v4's real layer names
+   (theme, base, components, utilities). */
+@layer theme, base, primevue, components, utilities;
+
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+}
