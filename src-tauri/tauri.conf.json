@@ -12,10 +12,14 @@
   "app": {
     "windows": [
       {
-        "title": "Bar None — Ultrawide Cutscene Fixer",
-        "width": 720,
-        "height": 760,
-        "resizable": true
+        "title": "Bar None",
+        "width": 400,
+        "height": 620,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "center": true
       }
     ],
     "security": {

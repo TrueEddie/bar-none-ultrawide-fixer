@@ -1,14 +1,15 @@
 import { defineStore } from "pinia";
 import {
   SOURCE_16_9,
-  PRESETS,
+  DEFAULT_RESOLUTION_ID,
   parseHex,
   bytesToHex,
   aspectToHex,
   presetHexById,
 } from "../utils/hex";
 
-export type PatchMode = "preset" | "calculator" | "custom";
+/** Sentinel resolution id meaning "enter a custom width x height". */
+export const CUSTOM_ID = "custom";
 
 /** Shape returned by the Rust `patch_exe` command. */
 export interface PatchResult {
@@ -26,51 +27,42 @@ export interface LastResult {
 
 interface PatcherState {
   filePath: string;
-  mode: PatchMode;
+  /** Search bytes — the 16:9 default, editable for the rare game that differs. */
   sourceHex: string;
-  presetId: string;
+  /** A PRESETS id, or CUSTOM_ID for a user-entered resolution. */
+  resolutionId: string;
   calcWidth: number;
   calcHeight: number;
-  customSearchHex: string;
-  customReplaceHex: string;
   busy: boolean;
   lastResult: LastResult | null;
+  /** Backup file paths that exist for the selected exe, newest first. */
+  backups: string[];
 }
 
 export const usePatcherStore = defineStore("patcher", {
   state: (): PatcherState => ({
     filePath: "",
-    mode: "preset",
-
-    // Shared "search for" pattern used by preset + calculator modes.
     sourceHex: SOURCE_16_9,
-
-    // preset mode
-    presetId: PRESETS[3].id, // default 5120x2160
-
-    // calculator mode
+    resolutionId: DEFAULT_RESOLUTION_ID, // 5120x2160
     calcWidth: 5120,
     calcHeight: 2160,
-
-    // custom mode (independent search + replace)
-    customSearchHex: SOURCE_16_9,
-    customReplaceHex: "",
-
     busy: false,
     lastResult: null,
+    backups: [],
   }),
 
   getters: {
-    // The effective search/replace hex strings for the active mode.
-    effectiveSearchHex: (state): string =>
-      state.mode === "custom" ? state.customSearchHex : state.sourceHex,
+    hasBackups: (state): boolean => state.backups.length > 0,
 
-    effectiveReplaceHex: (state): string => {
-      if (state.mode === "preset") return presetHexById(state.presetId);
-      if (state.mode === "calculator")
-        return aspectToHex(state.calcWidth, state.calcHeight);
-      return state.customReplaceHex;
-    },
+    /** The most recent backup (the one a restore would use). */
+    latestBackup: (state): string | null => state.backups[0] ?? null,
+
+    effectiveSearchHex: (state): string => state.sourceHex,
+
+    effectiveReplaceHex: (state): string =>
+      state.resolutionId === CUSTOM_ID
+        ? aspectToHex(state.calcWidth, state.calcHeight)
+        : presetHexById(state.resolutionId),
 
     searchBytes(): number[] | null {
       return parseHex(this.effectiveSearchHex);
@@ -85,7 +77,7 @@ export const usePatcherStore = defineStore("patcher", {
       const s = this.searchBytes;
       const r = this.replaceBytes;
       if (!s) return "Search bytes are not valid hex.";
-      if (!r) return "Replace bytes are not valid hex.";
+      if (!r) return "Enter a valid target resolution.";
       if (s.length !== r.length)
         return `Search (${s.length} bytes) and replace (${r.length} bytes) must be the same length.`;
       return null;
@@ -109,7 +101,6 @@ export const usePatcherStore = defineStore("patcher", {
     setError(message: unknown) {
       this.lastResult = { ok: false, message: String(message) };
     },
-    // Helpers used by the confirmation dialog.
     prettySearch(): string {
       return bytesToHex(this.searchBytes ?? []);
     },

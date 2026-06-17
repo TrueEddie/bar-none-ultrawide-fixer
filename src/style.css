@@ -7,6 +7,10 @@
 
 @import "tailwindcss";
 
+/* Drive Tailwind's `dark:` variant off the same `.app-dark` class PrimeVue uses
+   (set on <html> by utils/theme), instead of the prefers-color-scheme media query. */
+@custom-variant dark (&:where(.app-dark, .app-dark *));
+
 :root {
   color-scheme: light dark;
 }

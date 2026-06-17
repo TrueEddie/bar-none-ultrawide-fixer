@@ -16,14 +16,24 @@ export interface Preset {
   height: number;
 }
 
+/** Default preset selected on launch. */
+export const DEFAULT_RESOLUTION_ID = "5120x2160";
+
 /**
- * Known ultrawide presets (verified against the float32 LE conversion).
+ * Ultrawide resolution presets (wider than 16:9), from the r/ultrawidemasterrace
+ * cutscene-fixer list. Every value is the target aspect ratio as a little-endian
+ * float32, so they all pair with the 16:9 search default 39 8E E3 3F.
  */
 export const PRESETS: Preset[] = [
-  { id: "2560x1080", label: "2560 x 1080  (21:9)", value: "26 B4 17 40", width: 2560, height: 1080 },
-  { id: "3440x1440", label: "3440 x 1440  (21:9)", value: "8E E3 18 40", width: 3440, height: 1440 },
-  { id: "3840x1080", label: "3840 x 1080  (32:9)", value: "39 8E 63 40", width: 3840, height: 1080 },
-  { id: "5120x2160", label: "5120 x 2160  (21:9)", value: "26 B4 17 40", width: 5120, height: 2160 },
+  { id: "2560x1080", label: "2560 x 1080", value: "26 B4 17 40", width: 2560, height: 1080 },
+  { id: "3440x1440", label: "3440 x 1440", value: "8E E3 18 40", width: 3440, height: 1440 },
+  { id: "3840x1080", label: "3840 x 1080", value: "39 8E 63 40", width: 3840, height: 1080 },
+  { id: "3840x1200", label: "3840 x 1200", value: "CD CC 4C 40", width: 3840, height: 1200 },
+  { id: "3840x1440", label: "3840 x 1440", value: "AB AA 2A 40", width: 3840, height: 1440 },
+  { id: "3840x1600", label: "3840 x 1600", value: "9A 99 19 40", width: 3840, height: 1600 },
+  { id: "5120x1440", label: "5120 x 1440", value: "39 8E 63 40", width: 5120, height: 1440 },
+  { id: "5120x2160", label: "5120 x 2160", value: "26 B4 17 40", width: 5120, height: 2160 },
+  { id: "6880x2880", label: "6880 x 2880", value: "8E E3 18 40", width: 6880, height: 2880 },
 ];
 
 /** Look up a preset's replacement hex by id. */

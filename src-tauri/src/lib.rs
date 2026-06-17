@@ -95,12 +95,99 @@ fn patch_exe(path: String, search: Vec<u8>, replace: Vec<u8>) -> Result<PatchRes
     })
 }
 
+/// True if `name` is one of our timestamped backups for `prefix`
+/// (i.e. `<prefix><YYYYMMDD-HHMMSS>.bak`).
+fn is_backup_name(name: &str, prefix: &str) -> bool {
+    if !name.starts_with(prefix) || !name.ends_with(".bak") {
+        return false;
+    }
+    let start = prefix.len();
+    let end = name.len().saturating_sub(4); // strip ".bak"
+    if end <= start {
+        return false;
+    }
+    let stamp = name[start..end].as_bytes();
+    if stamp.len() != 15 {
+        return false; // YYYYMMDD-HHMMSS
+    }
+    stamp
+        .iter()
+        .enumerate()
+        .all(|(i, b)| if i == 8 { *b == b'-' } else { b.is_ascii_digit() })
+}
+
+/// List the timestamped backups Bar None created for `path`, newest first.
+#[tauri::command]
+fn list_backups(path: String) -> Result<Vec<String>, String> {
+    let p = Path::new(&path);
+    let (dir, file_name) = match (p.parent(), p.file_name().and_then(|n| n.to_str())) {
+        (Some(d), Some(n)) => (d, n),
+        _ => return Ok(vec![]),
+    };
+    let prefix = format!("{file_name}.");
+    let mut backups: Vec<String> = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if is_backup_name(name, &prefix) {
+                    backups.push(entry.path().to_string_lossy().into_owned());
+                }
+            }
+        }
+    }
+    backups.sort(); // timestamp in the name sorts chronologically
+    backups.reverse(); // newest first
+    Ok(backups)
+}
+
+/// Restore `path` from `backup_path`: remove the current file and rename the
+/// backup back to the original name. `backup_path` must be one of our backups
+/// sitting next to `path`.
+#[tauri::command]
+fn restore_backup(path: String, backup_path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    let b = Path::new(&backup_path);
+
+    if !b.is_file() {
+        return Err("Backup file not found.".into());
+    }
+
+    // Safety: only restore from a Bar None backup that sits next to `path`.
+    match (
+        p.parent(),
+        p.file_name().and_then(|n| n.to_str()),
+        b.parent(),
+        b.file_name().and_then(|n| n.to_str()),
+    ) {
+        (Some(dir), Some(fname), Some(b_dir), Some(b_name)) => {
+            if dir != b_dir {
+                return Err("Backup is not in the same folder as the executable.".into());
+            }
+            if !is_backup_name(b_name, &format!("{fname}.")) {
+                return Err("That file is not a backup of this executable.".into());
+            }
+        }
+        _ => return Err("Invalid file paths.".into()),
+    }
+
+    // Windows rename can't overwrite, so remove the current file first, then rename in.
+    if p.exists() {
+        fs::remove_file(p).map_err(|e| format!("Failed to remove current file: {e}"))?;
+    }
+    fs::rename(b, p).map_err(|e| format!("Failed to restore backup: {e}"))?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![patch_exe])
+        .invoke_handler(tauri::generate_handler![
+            patch_exe,
+            list_backups,
+            restore_backup
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -174,5 +261,51 @@ mod tests {
 
         let _ = fs::remove_file(&path);
         let _ = fs::remove_file(&backup);
+    }
+
+    #[test]
+    fn lists_and_restores_backup() {
+        let dir = std::env::temp_dir();
+        let exe = dir.join(format!("barnone_restore_{}.bin", std::process::id()));
+        let bak = dir.join(format!(
+            "barnone_restore_{}.bin.20260101-120000.bak",
+            std::process::id()
+        ));
+        fs::write(&exe, b"PATCHED").unwrap();
+        fs::write(&bak, b"ORIGINAL").unwrap();
+
+        let exe_s = exe.to_string_lossy().into_owned();
+
+        // The backup is discovered for this exe.
+        let found = list_backups(exe_s.clone()).unwrap();
+        assert!(found.iter().any(|p| p == &bak.to_string_lossy()));
+
+        // Restore swaps the backup back in and consumes it.
+        restore_backup(exe_s.clone(), bak.to_string_lossy().into_owned()).unwrap();
+        assert_eq!(fs::read(&exe).unwrap(), b"ORIGINAL");
+        assert!(!bak.exists());
+        assert!(list_backups(exe_s).unwrap().is_empty());
+
+        let _ = fs::remove_file(&exe);
+    }
+
+    #[test]
+    fn rejects_non_backup_restore() {
+        let dir = std::env::temp_dir();
+        let exe = dir.join(format!("barnone_reject_{}.bin", std::process::id()));
+        let other = dir.join(format!("barnone_reject_other_{}.txt", std::process::id()));
+        fs::write(&exe, b"DATA").unwrap();
+        fs::write(&other, b"NOT A BACKUP").unwrap();
+
+        // A file that isn't a Bar None backup of `exe` must be refused.
+        let err = restore_backup(
+            exe.to_string_lossy().into_owned(),
+            other.to_string_lossy().into_owned(),
+        );
+        assert!(err.is_err());
+        assert!(exe.exists(), "exe must be untouched on rejection");
+
+        let _ = fs::remove_file(&exe);
+        let _ = fs::remove_file(&other);
     }
 }
