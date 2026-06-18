@@ -24,7 +24,7 @@ your resolution, click Patch. It always makes a backup first.
 
 If you find Bar None useful, you can support development:
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/L3L31GRM9L)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/TrueEddie)
 
 ---
 
