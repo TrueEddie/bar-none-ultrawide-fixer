@@ -1,6 +1,8 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import PrimeVue from "primevue/config";
+import ConfirmationService from "primevue/confirmationservice";
+import Tooltip from "primevue/tooltip";
 import { definePreset } from "@primevue/themes";
 import Aura from "@primevue/themes/aura";
 import App from "./App.vue";
@@ -48,6 +50,8 @@ async function bootstrap() {
       },
     },
   });
+  app.use(ConfirmationService);
+  app.directive("tooltip", Tooltip);
   app.mount("#app");
 }
 

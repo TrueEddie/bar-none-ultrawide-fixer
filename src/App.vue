@@ -9,9 +9,10 @@
   import InputNumber from "primevue/inputnumber";
   import Message from "primevue/message";
   import Dialog from "primevue/dialog";
+  import ConfirmDialog from "primevue/confirmdialog";
+  import { useConfirm } from "primevue/useconfirm";
   import Card from "primevue/card";
   import Menu from "primevue/menu";
-  import Popover from "primevue/popover";
   import SplitButton from "primevue/splitbutton";
   import Tag from "primevue/tag";
   import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -23,16 +24,13 @@
   const store = usePatcherStore();
   const { filePath, sourceHex, calcWidth, calcHeight, busy, lastResult } =
     storeToRefs(store);
+  const confirm = useConfirm();
 
-  const showConfirm = ref(false);
-  const showRestore = ref(false);
-  const showReset = ref(false);
   const showAbout = ref(false);
   const editingSearch = ref(false);
 
   // Exe icons as data URLs, keyed by path (covers the selected file and recents).
   const recentIcons = ref<Record<string, string>>({});
-  const pathPopover = ref<InstanceType<typeof Popover> | null>(null);
   const exeName = computed(() =>
     filePath.value ? filePath.value.split(/[\\/]/).pop() : ""
   );
@@ -57,12 +55,6 @@
   function loadRecentIcons() {
     for (const r of store.recentFiles) void loadIcon(r.path);
   }
-  function showPath(event: Event) {
-    if (filePath.value) pathPopover.value?.show(event);
-  }
-  function hidePath() {
-    pathPopover.value?.hide();
-  }
 
   // Hamburger menu + theme toggle.
   const menu = ref<InstanceType<typeof Menu> | null>(null);
@@ -79,7 +71,7 @@
     {
       label: "Reset saved data",
       icon: "pi pi-trash",
-      command: () => { showReset.value = true; },
+      command: requestReset,
     },
     {
       label: "About",
@@ -87,10 +79,32 @@
       command: () => { showAbout.value = true; },
     },
   ]);
-  function confirmReset() {
-    showReset.value = false;
-    store.resetSavedData();
-    recentIcons.value = {};
+  /** Normalize raw input to "XX XX XX XX": hex only, uppercase, byte-paired, max 4 bytes. */
+  function formatHex(raw: string): string {
+    const digits = raw.replace(/[^0-9a-fA-F]/g, "").toUpperCase().slice(0, 8);
+    return digits.replace(/(.{2})/g, "$1 ").trim();
+  }
+  function onHexInput(e: Event) {
+    const el = e.target as HTMLInputElement;
+    const formatted = formatHex(el.value);
+    // Write back to the DOM too, so stripped/uppercased chars show even when the
+    // model value is unchanged (and Vue skips the re-render).
+    el.value = formatted;
+    sourceHex.value = formatted;
+  }
+
+  function requestReset() {
+    confirm.require({
+      group: "reset",
+      header: "Reset saved data",
+      acceptProps: { label: "Reset", severity: "danger" },
+      rejectProps: { label: "Cancel", severity: "secondary", text: true },
+      accept: () => {
+        store.resetSavedData();
+        recentIcons.value = {};
+        editingSearch.value = false;
+      },
+    });
   }
 
   function toggleMenu(event: Event) {
@@ -172,11 +186,16 @@
 
   function requestPatch() {
     if (!store.canPatch) return;
-    showConfirm.value = true;
+    confirm.require({
+      group: "patch",
+      header: "Confirm patch",
+      acceptProps: { label: "Patch" },
+      rejectProps: { label: "Cancel", severity: "secondary", text: true },
+      accept: () => doPatch(),
+    });
   }
 
-  async function confirmPatch() {
-    showConfirm.value = false;
+  async function doPatch() {
     busy.value = true;
     lastResult.value = null;
     try {
@@ -196,11 +215,16 @@
 
   function requestRestore() {
     if (!store.hasBackups) return;
-    showRestore.value = true;
+    confirm.require({
+      group: "restore",
+      header: "Restore from backup",
+      acceptProps: { label: "Restore", severity: "danger" },
+      rejectProps: { label: "Cancel", severity: "secondary", text: true },
+      accept: () => doRestore(),
+    });
   }
 
-  async function confirmRestore() {
-    showRestore.value = false;
+  async function doRestore() {
     const backup = store.latestBackup;
     if (!backup) return;
     busy.value = true;
@@ -294,8 +318,8 @@
           <!-- 1. File picker -->
           <section class="flex gap-2 w-full items-stretch">
             <div
-              class="flex-1 flex items-center gap-2 py-1 px-2 rounded-md border dark:bg-black border-gray-300 dark:border-gray-600 overflow-hidden"
-              @mouseenter="showPath" @mouseleave="hidePath">
+              v-tooltip.top="filePath ? { value: filePath, class: 'max-w-xs break-all font-mono text-xs' } : undefined"
+              class="flex-1 flex items-center gap-2 py-1 px-2 rounded-md border dark:bg-black border-gray-300 dark:border-gray-600 overflow-hidden">
               <template v-if="filePath">
                 <img v-if="iconUrl" :src="iconUrl" alt="" class="w-7 h-7 shrink-0 rounded" />
                 <i v-else class="pi pi-file shrink-0 opacity-50" />
@@ -320,9 +344,6 @@
               </template>
             </SplitButton>
           </section>
-          <Popover ref="pathPopover" placement="top">
-            <div class="max-w-xs text-sm font-mono break-all">{{ filePath }}</div>
-          </Popover>
 
           <!-- 2. Target resolution + from → to hex -->
           <section class="flex flex-col gap-2">
@@ -337,8 +358,8 @@
 
             <div class="flex items-center gap-2 text-sm mt-2">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
-              <div v-if="editingSearch" class="relative flex-1 min-w-0">
-                <InputText v-model="sourceHex" class="font-mono w-full pr-16" autofocus
+              <div v-if="editingSearch" class="relative shrink-0">
+                <InputText :value="sourceHex" class="font-mono w-46 pr-16" autofocus maxlength="11" @input="onHexInput"
                   @keyup.enter="editingSearch = false" />
                 <div class="absolute inset-y-0 right-1 flex items-center">
                   <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small"
@@ -380,33 +401,29 @@
       </template>
     </Card>
 
-    <!-- Confirmation dialog -->
-    <Dialog v-model:visible="showConfirm" modal header="Confirm patch" :style="{ width: '22rem' }">
-      <div class="flex flex-col gap-2 text-sm">
-        <div><span class="text-surface-500">File:</span> <span class="font-mono break-all">{{ filePath }}</span></div>
-        <div><span class="text-surface-500">Search:</span> <span class="font-mono">{{ store.prettySearch() }}</span>
+    <!-- Patch confirmation -->
+    <ConfirmDialog group="patch" :closable="false" :style="{ width: '22rem' }">
+      <template #message>
+        <div class="flex flex-col gap-2 text-sm w-full">
+          <div><span class="text-surface-500">File:</span> <span class="font-mono break-all">{{ filePath }}</span></div>
+          <div><span class="text-surface-500">Search:</span> <span class="font-mono">{{ store.prettySearch() }}</span>
+          </div>
+          <div><span class="text-surface-500">Replace:</span> <span class="font-mono">{{ store.prettyReplace() }}</span>
+          </div>
+          <p class="text-xs text-surface-500 mt-2">A backup is made automatically before writing.</p>
         </div>
-        <div><span class="text-surface-500">Replace:</span> <span class="font-mono">{{ store.prettyReplace() }}</span>
-        </div>
-        <p class="text-xs text-surface-500 mt-2">A backup is made automatically before writing.</p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" severity="secondary" text @click="showConfirm = false" />
-        <Button label="Patch" @click="confirmPatch" class="text-white!" />
       </template>
-    </Dialog>
+    </ConfirmDialog>
 
-    <!-- Restore confirmation dialog -->
-    <Dialog v-model:visible="showRestore" modal header="Restore from backup" :style="{ width: '22rem' }">
-      <div class="flex flex-col gap-2 text-sm">
-        <p>This deletes the current executable and restores it from the backup:</p>
-        <div class="font-mono break-all">{{ backupName }}</div>
-      </div>
-      <template #footer>
-        <Button label="Cancel" severity="secondary" text @click="showRestore = false" />
-        <Button label="Restore" severity="danger" @click="confirmRestore" />
+    <!-- Restore confirmation -->
+    <ConfirmDialog group="restore" :closable="false" :style="{ width: '22rem' }">
+      <template #message>
+        <div class="flex flex-col gap-2 text-sm w-full">
+          <p>This deletes the current executable and restores it from the backup:</p>
+          <div class="font-mono break-all">{{ backupName }}</div>
+        </div>
       </template>
-    </Dialog>
+    </ConfirmDialog>
     <!-- About dialog -->
     <Dialog v-model:visible="showAbout" modal header="About" :style="{ width: '22rem' }">
       <div class="flex flex-col items-center gap-3 py-2 text-sm text-center">
@@ -424,17 +441,14 @@
       </div>
     </Dialog>
 
-    <!-- Reset saved data confirmation dialog -->
-    <Dialog v-model:visible="showReset" modal header="Reset saved data" :style="{ width: '22rem' }">
-      <div class="flex flex-col gap-2 text-sm">
-        <p>This will clear your recent files, restore the default target resolution (5120×2160), and reset the search
-          bytes
-          to 16:9. Your theme preference is kept.</p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" severity="secondary" text @click="showReset = false" />
-        <Button label="Reset" severity="danger" @click="confirmReset" />
+    <!-- Reset saved data confirmation -->
+    <ConfirmDialog group="reset" :closable="false" :style="{ width: '22rem' }">
+      <template #message>
+        <div class="flex flex-col gap-2 text-sm w-full">
+          <p>This will clear your recent files, restore the default target resolution (5120×2160), and reset the search
+            bytes to 16:9. Your theme preference is kept.</p>
+        </div>
       </template>
-    </Dialog>
+    </ConfirmDialog>
   </main>
 </template>

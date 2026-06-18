@@ -154,11 +154,17 @@ export const usePatcherStore = defineStore("patcher", {
         }.`,
       };
     },
+    /** Return to the first-run state: clear saved settings and session state alike. */
     resetSavedData() {
+      // Persisted settings.
       this.sourceHex = SOURCE_16_9;
       this.calcWidth = 5120;
       this.calcHeight = 2160;
       this.recentFiles = [];
+      // Session state, so the UI looks freshly launched (no selected exe/backups).
+      this.filePath = "";
+      this.backups = [];
+      this.lastResult = null;
       this.persist();
     },
     setError(message: unknown) {
