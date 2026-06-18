@@ -2,22 +2,6 @@
   <img src="branding/social-preview.png" alt="Bar None — Ultrawide Cutscene Fixer" width="100%">
 </p>
 
-# Bar None — Ultrawide Cutscene Fixer
-
-A tiny Windows desktop app that fixes the **black bars on all four sides** that many
-games show during cutscenes on ultrawide / super-ultrawide monitors.
-
-Lots of games hardcode a **16:9** aspect ratio for their pre-rendered or in-engine
-cutscenes. On a 21:9 or 32:9 display that 16:9 frame gets letterboxed *and* pillarboxed,
-leaving a small window of video surrounded by black. The community fix is to open the
-game's `.exe` in a hex editor and replace the 4 bytes that encode `16:9` with the 4 bytes
-for your monitor's aspect ratio. **Bar None automates exactly that** — pick the exe, pick
-your resolution, click Patch. It always makes a backup first.
-
-> ⚠️ Editing a game's executable can violate its terms of service and may trip anti-cheat
-> systems in multiplayer games. Use it on single-player games, at your own risk. A
-> timestamped backup is always created so you can restore the original.
-
 ## Download
 
 **[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** — grab `bar-none.exe` from the latest release. No installer; just run it.
@@ -28,17 +12,48 @@ If you find Bar None useful, you can support development:
 
 ---
 
+# Bar None — Ultrawide Cutscene Fixer
+
+A tiny Windows desktop app that fixes the **black bars on all four sides** that many
+games show during cutscenes on ultrawide / super-ultrawide monitors.
+
+Lots of games hardcode a **16:9** aspect ratio for their pre-rendered or in-engine
+cutscenes. On a 21:9 or 32:9 display that 16:9 frame gets letterboxed _and_ pillarboxed,
+leaving a small window of video surrounded by black. The community fix is to open the
+game's `.exe` in a hex editor and replace the 4 bytes that encode `16:9` with the 4 bytes
+for your monitor's aspect ratio. **Bar None automates exactly that** — pick the exe, pick
+your resolution, click Patch. It always makes a backup first.
+
+> ⚠️ Editing a game's executable can violate its terms of service and may trip anti-cheat
+> systems in multiplayer games. Use it on single-player games, at your own risk. A
+> timestamped backup is always created so you can restore the original.
+
+## Before & after
+
+The same _007 First Light_ cutscene on a super-ultrawide display. Before, it's locked to
+16:9 with black bars on all four sides; after patching with Bar None, it fills the screen.
+
+**Before** — black bars boxing in the cutscene:
+
+![Before: 007 First Light cutscene with black bars on all four sides](screenshots/before-bar-none.jpg)
+
+**After** — patched to the monitor's aspect ratio, no bars:
+
+![After: the same cutscene filling the full ultrawide screen](screenshots/after-bar-none.jpg)
+
+---
+
 ## How it works
 
 The bytes a game stores for its aspect ratio are just the ratio as an IEEE-754
 little-endian **float32**:
 
-| Aspect | Value | Bytes |
-|--------|-------|-------|
+| Aspect                                 | Value   | Bytes         |
+| -------------------------------------- | ------- | ------------- |
 | 16:9 (the default most games hardcode) | 1.77778 | `39 8E E3 3F` |
-| 2560×1080 / 5120×2160 (21:9) | 2.37037 | `26 B4 17 40` |
-| 3440×1440 (21:9) | 2.38889 | `8E E3 18 40` |
-| 3840×1080 (32:9) | 3.55556 | `39 8E 63 40` |
+| 2560×1080 / 5120×2160 (21:9)           | 2.37037 | `26 B4 17 40` |
+| 3440×1440 (21:9)                       | 2.38889 | `8E E3 18 40` |
+| 3840×1080 (32:9)                       | 3.55556 | `39 8E 63 40` |
 
 Bar None searches the exe for the 16:9 bytes and replaces **every** occurrence with the
 bytes for your target ratio. Because both patterns are exactly 4 bytes, the replacement is
