@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/social-preview.png" alt="Bar None — Ultrawide Cutscene Fixer" width="100%">
+</p>
+
 # Bar None — Ultrawide Cutscene Fixer
 
 A tiny Windows desktop app that fixes the **black bars on all four sides** that many
