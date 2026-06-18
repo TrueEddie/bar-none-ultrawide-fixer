@@ -1,0 +1,15 @@
+# Normalize text files to LF in the repo (overrides core.autocrlf, so Git stops
+# flagging phantom line-ending changes). Binaries are marked so Git never touches them.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.exe binary
