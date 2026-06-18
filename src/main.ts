@@ -4,12 +4,10 @@ import PrimeVue from "primevue/config";
 import { definePreset } from "@primevue/themes";
 import Aura from "@primevue/themes/aura";
 import App from "./App.vue";
+import { preloadSettings } from "./utils/settings";
 import { initTheme } from "./utils/theme";
 import "primeicons/primeicons.css";
 import "./style.css";
-
-// Apply saved/system theme before mounting to avoid a flash.
-initTheme();
 
 // Aura's default primary is emerald; remap it to indigo.
 const BarNonePreset = definePreset(Aura, {
@@ -30,20 +28,27 @@ const BarNonePreset = definePreset(Aura, {
   },
 });
 
-const app = createApp(App);
+async function bootstrap() {
+  // Load persisted settings from disk before mounting, so the store and theme
+  // hydrate synchronously and there's no flash.
+  await preloadSettings();
+  initTheme();
 
-app.use(createPinia());
-app.use(PrimeVue, {
-  theme: {
-    preset: BarNonePreset,
-    options: {
-      // Manual light/dark via the `.app-dark` class on <html> (see utils/theme).
-      darkModeSelector: ".app-dark",
-      // Emit PrimeVue's component CSS into the `primevue` cascade layer, which
-      // style.css orders between Tailwind's base and utilities layers.
-      cssLayer: { name: "primevue", order: "theme, base, primevue, components, utilities" },
+  const app = createApp(App);
+  app.use(createPinia());
+  app.use(PrimeVue, {
+    theme: {
+      preset: BarNonePreset,
+      options: {
+        // Manual light/dark via the `.app-dark` class on <html> (see utils/theme).
+        darkModeSelector: ".app-dark",
+        // Emit PrimeVue's component CSS into the `primevue` cascade layer, which
+        // style.css orders between Tailwind's base and utilities layers.
+        cssLayer: { name: "primevue", order: "theme, base, primevue, components, utilities" },
+      },
     },
-  },
-});
+  });
+  app.mount("#app");
+}
 
-app.mount("#app");
+bootstrap();

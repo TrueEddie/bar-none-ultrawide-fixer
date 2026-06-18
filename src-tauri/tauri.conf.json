@@ -13,13 +13,14 @@
     "windows": [
       {
         "title": "Bar None",
-        "width": 400,
-        "height": 620,
+        "width": 384,
+        "height": 500,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,
-        "center": true
+        "center": true,
+        "alwaysOnTop": true
       }
     ],
     "security": {

@@ -1,15 +1,14 @@
 import { defineStore } from "pinia";
 import {
   SOURCE_16_9,
-  DEFAULT_RESOLUTION_ID,
   parseHex,
   bytesToHex,
   aspectToHex,
-  presetHexById,
 } from "../utils/hex";
+import { loadSettings, saveSettings } from "../utils/settings";
 
-/** Sentinel resolution id meaning "enter a custom width x height". */
-export const CUSTOM_ID = "custom";
+/** Max number of recently-opened executables to remember. */
+const MAX_RECENTS = 5;
 
 /** Shape returned by the Rust `patch_exe` command. */
 export interface PatchResult {
@@ -25,31 +24,56 @@ export interface LastResult {
   message: string;
 }
 
+/** A remembered executable plus the "search" bytes last used for it. */
+export interface RecentFile {
+  path: string;
+  sourceHex: string;
+}
+
+/** Normalize persisted recents (also migrates the legacy string[] format). */
+function normalizeRecents(saved: unknown): RecentFile[] {
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .map((r): RecentFile | null => {
+      if (typeof r === "string") return { path: r, sourceHex: SOURCE_16_9 };
+      if (r && typeof r.path === "string") {
+        return { path: r.path, sourceHex: typeof r.sourceHex === "string" ? r.sourceHex : SOURCE_16_9 };
+      }
+      return null;
+    })
+    .filter((r): r is RecentFile => r !== null)
+    .slice(0, MAX_RECENTS);
+}
+
 interface PatcherState {
   filePath: string;
   /** Search bytes — the 16:9 default, editable for the rare game that differs. */
   sourceHex: string;
-  /** A PRESETS id, or CUSTOM_ID for a user-entered resolution. */
-  resolutionId: string;
+  /** Target resolution the user is patching to. */
   calcWidth: number;
   calcHeight: number;
   busy: boolean;
   lastResult: LastResult | null;
   /** Backup file paths that exist for the selected exe, newest first. */
   backups: string[];
+  /** Recently-opened executables, newest first (persisted). */
+  recentFiles: RecentFile[];
 }
 
 export const usePatcherStore = defineStore("patcher", {
-  state: (): PatcherState => ({
-    filePath: "",
-    sourceHex: SOURCE_16_9,
-    resolutionId: DEFAULT_RESOLUTION_ID, // 5120x2160
-    calcWidth: 5120,
-    calcHeight: 2160,
-    busy: false,
-    lastResult: null,
-    backups: [],
-  }),
+  state: (): PatcherState => {
+    const saved = loadSettings();
+    return {
+      filePath: "",
+      sourceHex: saved.sourceHex ?? SOURCE_16_9,
+      calcWidth: saved.calcWidth ?? 5120,
+      calcHeight: saved.calcHeight ?? 2160,
+      busy: false,
+      lastResult: null,
+      backups: [],
+      recentFiles: normalizeRecents(saved.recentFiles),
+    };
+  },
 
   getters: {
     hasBackups: (state): boolean => state.backups.length > 0,
@@ -60,9 +84,7 @@ export const usePatcherStore = defineStore("patcher", {
     effectiveSearchHex: (state): string => state.sourceHex,
 
     effectiveReplaceHex: (state): string =>
-      state.resolutionId === CUSTOM_ID
-        ? aspectToHex(state.calcWidth, state.calcHeight)
-        : presetHexById(state.resolutionId),
+      aspectToHex(state.calcWidth, state.calcHeight),
 
     searchBytes(): number[] | null {
       return parseHex(this.effectiveSearchHex);
@@ -88,6 +110,40 @@ export const usePatcherStore = defineStore("patcher", {
   },
 
   actions: {
+    /** Add/refresh an entry at the front of the recents list (deduped, capped). */
+    addRecentFile(path: string, sourceHex: string) {
+      this.recentFiles = [
+        { path, sourceHex },
+        ...this.recentFiles.filter((r) => r.path !== path),
+      ].slice(0, MAX_RECENTS);
+      this.persist();
+    },
+    /** Replace the recents list (e.g. after pruning missing files). */
+    setRecentFiles(files: RecentFile[]) {
+      this.recentFiles = files.slice(0, MAX_RECENTS);
+      this.persist();
+    },
+    /** Remember the search bytes used for a recent exe (no reorder). */
+    setRecentSourceHex(path: string, sourceHex: string) {
+      const entry = this.recentFiles.find((r) => r.path === path);
+      if (entry && entry.sourceHex !== sourceHex) {
+        entry.sourceHex = sourceHex;
+        this.persist();
+      }
+    },
+    /** The saved search bytes for a path, if any. */
+    recentSourceHex(path: string): string | undefined {
+      return this.recentFiles.find((r) => r.path === path)?.sourceHex;
+    },
+    /** Write the persisted settings to localStorage. */
+    persist() {
+      saveSettings({
+        sourceHex: this.sourceHex,
+        recentFiles: this.recentFiles,
+        calcWidth: this.calcWidth,
+        calcHeight: this.calcHeight,
+      });
+    },
     formatResult(result: PatchResult) {
       this.lastResult = {
         ok: true,
@@ -97,6 +153,13 @@ export const usePatcherStore = defineStore("patcher", {
           result.count === 1 ? "" : "s"
         }.`,
       };
+    },
+    resetSavedData() {
+      this.sourceHex = SOURCE_16_9;
+      this.calcWidth = 5120;
+      this.calcHeight = 2160;
+      this.recentFiles = [];
+      this.persist();
     },
     setError(message: unknown) {
       this.lastResult = { ok: false, message: String(message) };

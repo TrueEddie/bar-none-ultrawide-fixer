@@ -21,3 +21,9 @@ body,
   margin: 0;
   height: 100%;
 }
+
+/* The dialog mask fills the (card-sized) window; round its corners to match the
+   card (rounded-xl = 0.75rem) so it doesn't poke past the card's rounded edges. */
+.p-dialog-mask {
+  border-radius: 0.75rem;
+}

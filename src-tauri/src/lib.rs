@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::Manager;
 
 #[derive(Serialize)]
 struct PatchResult {
@@ -178,6 +179,45 @@ fn restore_backup(path: String, backup_path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Extract the icon embedded in an executable, returned as PNG bytes.
+#[tauri::command]
+fn get_exe_icon(path: String) -> Result<Vec<u8>, String> {
+    systemicons::get_icon(&path, 64).map_err(|e| format!("{e:?}"))
+}
+
+/// Return only the paths that still exist on disk (to prune stale recents).
+#[tauri::command]
+fn filter_existing(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|p| Path::new(p).is_file())
+        .collect()
+}
+
+fn settings_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    Ok(dir.join("settings.json"))
+}
+
+/// Read the persisted settings JSON (returns "{}" if none yet).
+#[tauri::command]
+fn read_settings(app: tauri::AppHandle) -> String {
+    settings_file(&app)
+        .ok()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .unwrap_or_else(|| "{}".to_string())
+}
+
+/// Write the settings JSON to disk synchronously (flushes immediately).
+#[tauri::command]
+fn write_settings(app: tauri::AppHandle, json: String) -> Result<(), String> {
+    let path = settings_file(&app)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&path, json).map_err(|e| format!("Failed to write settings: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -186,7 +226,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             patch_exe,
             list_backups,
-            restore_backup
+            restore_backup,
+            get_exe_icon,
+            filter_existing,
+            read_settings,
+            write_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
