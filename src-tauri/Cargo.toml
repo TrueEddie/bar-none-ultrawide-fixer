@@ -1,6 +1,6 @@
 [package]
 name = "bar-none-ultrawide-fixer"
-version = "1.0.1"
+version = "1.0.2"
 description = "A Tauri App"
 authors = ["Eddie Cosme"]
 edition = "2021"
