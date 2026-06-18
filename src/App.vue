@@ -193,7 +193,7 @@
     confirm.require({
       group: "patch",
       header: "Confirm patch",
-      acceptProps: { label: "Patch" },
+      acceptProps: { label: "Patch", class: "text-white!" },
       rejectProps: { label: "Cancel", severity: "secondary", text: true },
       accept: () => doPatch(),
     });
@@ -294,7 +294,7 @@
   <main ref="rootEl" class="w-fit text-surface-900 dark:text-surface-0">
     <Card class="w-96 overflow-hidden border border-gray-500 !shadow-none rounded-xl">
       <template #header>
-        <div class="bg-linear-to-b from-indigo-950 to-indigo-500 flex flex-col">
+        <div class="bg-linear-to-b from-indigo-950 to-indigo-500 flex flex-col drop-shadow-md">
           <!-- title-bar controls: hamburger left, minimize/close right (the drag handle) -->
           <div class="flex items-center justify-between px-1 pt-1" data-tauri-drag-region>
             <Button icon="pi pi-bars" text rounded size="small" aria-label="Menu" class="!text-white"
@@ -350,17 +350,20 @@
           </section>
 
           <!-- 2. Target resolution + from → to hex -->
-          <section class="flex flex-col gap-2">
-            <label class="text-sm font-medium">Target resolution</label>
-            <div class="flex items-center gap-2 w-full">
-              <InputNumber v-model="calcWidth" :use-grouping="false" :min="1" placeholder="3440" fluid
-                class="flex-1 min-w-0" />
-              <span class="text-surface-500 shrink-0">×</span>
-              <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" placeholder="1440" fluid
-                class="flex-1 min-w-0" />
-            </div>
 
-            <div class="flex items-center gap-2 text-sm mt-2">
+          <section class="flex flex-col gap-2">
+            <Tag class="p-2" severity="secondary">
+              <label class="text-sm font-medium">Target resolution</label>
+              <div class="flex items-center gap-2 w-full">
+                <InputNumber v-model="calcWidth" :use-grouping="false" :min="1" placeholder="3440" fluid
+                  class="flex-1 min-w-0" input-class="text-center" />
+                <span class="text-surface-500 shrink-0">×</span>
+                <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" placeholder="1440" fluid
+                  class="flex-1 min-w-0" input-class="text-center" />
+              </div>
+            </Tag>
+            <!-- <Tag> -->
+            <div class="flex items-center gap-2 text-sm mt-3 justify-between">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
               <div v-if="editingSearch" class="relative shrink-0">
                 <InputText :value="sourceHex" class="font-mono w-46 pr-16" autofocus maxlength="11" @input="onHexInput"
@@ -374,10 +377,14 @@
               </div>
               <Tag v-else :value="sourceHex" :severity="sourceHex === SOURCE_16_9 ? 'secondary' : 'warn'"
                 class="font-mono cursor-pointer" @click="editingSearch = true" />
-              <i class="pi pi-arrow-right text-xs opacity-60 shrink-0" />
-              <span class="font-mono shrink-0">{{ store.effectiveReplaceHex || "—" }}</span>
+              <i class="pi pi-arrow-right text-xs opacity-60 shrink-0 " />
+              <Tag>
+                <span class="font-mono shrink-0">{{ store.effectiveReplaceHex || "—" }}</span>
+              </Tag>
             </div>
+            <!-- </Tag> -->
           </section>
+
 
           <!-- 4. Patch / Restore -->
           <div class="flex gap-2">
