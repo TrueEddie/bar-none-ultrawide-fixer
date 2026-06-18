@@ -15,16 +15,20 @@
   import Menu from "primevue/menu";
   import SplitButton from "primevue/splitbutton";
   import Tag from "primevue/tag";
+  import Badge from "primevue/badge";
   import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
   import { getVersion } from "@tauri-apps/api/app";
+  import { openUrl } from "@tauri-apps/plugin-opener";
 
   import { usePatcherStore, type PatchResult } from "./stores/patcher";
   import { SOURCE_16_9 } from "./utils/hex";
   import { toggleTheme, isDark } from "./utils/theme";
+  import { loadSettings } from "./utils/settings";
+  import { detectMonitorResolution } from "./utils/monitor";
+  import { checkLatestRelease, isNewer } from "./utils/update";
 
   const store = usePatcherStore();
-  const { filePath, sourceHex, calcWidth, calcHeight, busy, lastResult } =
-    storeToRefs(store);
+  const { filePath, sourceHex, calcWidth, calcHeight, busy, lastResult } = storeToRefs(store);
   const confirm = useConfirm();
 
   const showAbout = ref(false);
@@ -33,14 +37,52 @@
   const appVersion = ref("");
   getVersion().then((v) => (appVersion.value = v));
 
+  // Update check: a badge surfaces when a newer GitHub release exists.
+  const updateAvailable = ref(false);
+  const latestVersion = ref("");
+  const latestUrl = ref("");
+  const showUpdate = ref(false);
+  const checkingUpdate = ref(false);
+
+  /** Compare the latest release to the running version and update badge state. */
+  async function refreshUpdateState(): Promise<boolean> {
+    const latest = await checkLatestRelease();
+    if (!latest) return false;
+    latestVersion.value = latest.version;
+    latestUrl.value = latest.url;
+    updateAvailable.value = appVersion.value ? isNewer(latest.version, appVersion.value) : false;
+    return updateAvailable.value;
+  }
+
+  /** Hamburger "Check for updates": re-check, then show the result. */
+  async function checkForUpdates() {
+    checkingUpdate.value = true;
+    try {
+      await refreshUpdateState();
+    } finally {
+      checkingUpdate.value = false;
+    }
+    showUpdate.value = true;
+  }
+
+  function downloadUpdate() {
+    showUpdate.value = false;
+    if (latestUrl.value) void openUrl(latestUrl.value);
+  }
+
+  /** Fill the target resolution from the user's monitor. */
+  async function useMonitorResolution() {
+    const res = await detectMonitorResolution();
+    if (res) {
+      calcWidth.value = res.width;
+      calcHeight.value = res.height;
+    }
+  }
+
   // Exe icons as data URLs, keyed by path (covers the selected file and recents).
   const recentIcons = ref<Record<string, string>>({});
-  const exeName = computed(() =>
-    filePath.value ? filePath.value.split(/[\\/]/).pop() : ""
-  );
-  const iconUrl = computed(() =>
-    filePath.value ? recentIcons.value[filePath.value] ?? null : null
-  );
+  const exeName = computed(() => (filePath.value ? filePath.value.split(/[\\/]/).pop() : ""));
+  const iconUrl = computed(() => (filePath.value ? (recentIcons.value[filePath.value] ?? null) : null));
   function bytesToDataUrl(bytes: number[]): string {
     let binary = "";
     const arr = new Uint8Array(bytes);
@@ -78,14 +120,25 @@
       command: requestReset,
     },
     {
+      label: updateAvailable.value ? "Update available" : "Check for updates",
+      icon: "pi pi-download",
+      update: true,
+      command: checkForUpdates,
+    },
+    {
       label: "About",
       icon: "pi pi-info-circle",
-      command: () => { showAbout.value = true; },
+      command: () => {
+        showAbout.value = true;
+      },
     },
   ]);
   /** Normalize raw input to "XX XX XX XX": hex only, uppercase, byte-paired, max 4 bytes. */
   function formatHex(raw: string): string {
-    const digits = raw.replace(/[^0-9a-fA-F]/g, "").toUpperCase().slice(0, 8);
+    const digits = raw
+      .replace(/[^0-9a-fA-F]/g, "")
+      .toUpperCase()
+      .slice(0, 8);
     return digits.replace(/(.{2})/g, "$1 ").trim();
   }
   function onHexInput(e: Event) {
@@ -107,6 +160,8 @@
         store.resetSavedData();
         recentIcons.value = {};
         editingSearch.value = false;
+        // Mirror first-launch: re-detect the monitor instead of the fixed default.
+        void useMonitorResolution();
       },
     });
   }
@@ -122,9 +177,7 @@
   }
 
   /** Filename of the backup a restore would use. */
-  const backupName = computed(() =>
-    store.latestBackup ? store.latestBackup.split(/[\\/]/).pop() : ""
-  );
+  const backupName = computed(() => (store.latestBackup ? store.latestBackup.split(/[\\/]/).pop() : ""));
 
   /** Refresh the list of backups that exist for the selected exe. */
   async function refreshBackups() {
@@ -180,7 +233,7 @@
     () => {
       if (filePath.value) store.setRecentSourceHex(filePath.value, sourceHex.value);
       store.persist();
-    }
+    },
   );
 
   // Keep recent-file icons loaded for the dropdown.
@@ -286,6 +339,16 @@
         // ignore
       }
     }
+
+    // First run only: prefill the target resolution from the user's monitor
+    // (don't overwrite a resolution the user has already saved).
+    const saved = loadSettings();
+    if (saved.calcWidth === undefined || saved.calcHeight === undefined) {
+      await useMonitorResolution();
+    }
+
+    // Silent update check: set the badge if a newer release exists (no popup).
+    void refreshUpdateState();
   });
   onBeforeUnmount(() => resizeObserver?.disconnect());
 </script>
@@ -297,14 +360,22 @@
         <div class="bg-linear-to-b from-indigo-950 to-indigo-500 flex flex-col drop-shadow-md">
           <!-- title-bar controls: hamburger left, minimize/close right (the drag handle) -->
           <div class="flex items-center justify-between px-1 pt-1" data-tauri-drag-region>
-            <Button icon="pi pi-bars" text rounded size="small" aria-label="Menu" class="!text-white"
-              @click="toggleMenu" />
-            <Menu ref="menu" :model="menuItems" popup append-to="body" />
+            <div class="relative">
+              <Button icon="pi pi-bars" text rounded size="small" :aria-label="updateAvailable ? 'Menu (update available)' : 'Menu'" class="!text-white" @click="toggleMenu" />
+              <Badge v-if="updateAvailable" severity="danger" class="absolute! top-1 right-1 h-2! min-w-2! w-2! p-0 pointer-events-none" />
+            </div>
+            <Menu ref="menu" :model="menuItems" popup append-to="body">
+              <template #item="{ item, props }">
+                <a v-bind="props.action" class="flex items-center gap-2 px-3 py-2">
+                  <span :class="item.icon" class="text-sm" />
+                  <span class="text-sm">{{ item.label }}</span>
+                  <Badge v-if="item.update && updateAvailable" severity="danger" class="ml-auto self-center h-2! w-2! min-w-2! p-0" />
+                </a>
+              </template>
+            </Menu>
             <div class="flex items-center">
-              <Button icon="pi pi-minus" text rounded size="small" aria-label="Minimize" class="!text-white"
-                @click="minimizeWindow" />
-              <Button icon="pi pi-times" text rounded size="small" aria-label="Close" class="!text-white"
-                @click="closeWindow" />
+              <Button icon="pi pi-minus" text rounded size="small" aria-label="Minimize" class="!text-white" @click="minimizeWindow" />
+              <Button icon="pi pi-times" text rounded size="small" aria-label="Close" class="!text-white" @click="closeWindow" />
             </div>
           </div>
           <!-- logo + title -->
@@ -323,15 +394,15 @@
           <section class="flex gap-2 w-full items-stretch">
             <div
               v-tooltip.top="filePath ? { value: filePath, class: 'max-w-xs break-all font-mono text-xs' } : undefined"
-              class="flex-1 flex items-center gap-2 py-1 px-2 rounded-md border dark:bg-black border-gray-300 dark:border-gray-600 overflow-hidden">
+              class="flex-1 flex items-center gap-2 py-1 px-2 rounded-md border dark:bg-black border-gray-300 dark:border-gray-600 overflow-hidden"
+            >
               <template v-if="filePath">
                 <img v-if="iconUrl" :src="iconUrl" alt="" class="w-7 h-7 shrink-0 rounded" />
                 <i v-else class="pi pi-file shrink-0 opacity-50" />
                 <span class="truncate text-sm">{{ exeName }}</span>
               </template>
               <template v-else>
-                <div
-                  class="w-7 h-7 shrink-0 rounded border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                <div class="w-7 h-7 shrink-0 rounded border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
                   <i class="pi pi-image text-xs opacity-40" />
                 </div>
                 <span class="text-sm opacity-60">No executable selected</span>
@@ -340,8 +411,7 @@
             <SplitButton label="Search" severity="secondary" :model="recentMenuItems" @click="pickFile">
               <template #item="{ item, props }">
                 <a v-bind="props.action" class="flex items-center gap-2 px-2 py-2">
-                  <img v-if="item.path && recentIcons[item.path]" :src="recentIcons[item.path]" alt=""
-                    class="w-5 h-5 shrink-0 rounded" />
+                  <img v-if="item.path && recentIcons[item.path]" :src="recentIcons[item.path]" alt="" class="w-5 h-5 shrink-0 rounded" />
                   <i v-else-if="item.path" class="pi pi-file text-xs opacity-50 shrink-0" />
                   <span class="truncate text-sm">{{ item.label }}</span>
                 </a>
@@ -352,32 +422,29 @@
           <!-- 2. Target resolution + from → to hex -->
 
           <section class="flex flex-col gap-2">
-            <Tag class="p-2" severity="secondary">
-              <label class="text-sm font-medium">Target resolution</label>
-              <div class="flex items-center gap-2 w-full">
-                <InputNumber v-model="calcWidth" :use-grouping="false" :min="1" placeholder="3440" fluid
-                  class="flex-1 min-w-0" input-class="text-center" />
-                <span class="text-surface-500 shrink-0">×</span>
-                <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" placeholder="1440" fluid
-                  class="flex-1 min-w-0" input-class="text-center" />
+            <Tag class="p-2 flex gap-4" severity="secondary">
+              <div class="flex items-center text-center">
+                <label class="text-sm font-medium">Target Resolution</label>
               </div>
+              <div class="flex items-center gap-2 w-full">
+                <InputNumber v-model="calcWidth" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" />
+                <span class="text-surface-500 shrink-0">×</span>
+                <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" />
+              </div>
+              <Button label="Auto" text size="small" aria-label="Use my monitor's resolution" class="px-3" @click="useMonitorResolution" />
             </Tag>
             <!-- <Tag> -->
             <div class="flex items-center gap-2 text-sm mt-3 justify-between">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
               <div v-if="editingSearch" class="relative shrink-0">
-                <InputText :value="sourceHex" class="font-mono w-46 pr-16" autofocus maxlength="11" @input="onHexInput"
-                  @keyup.enter="editingSearch = false" />
+                <InputText :value="sourceHex" class="font-mono w-46 pr-16" autofocus maxlength="11" @input="onHexInput" @keyup.enter="editingSearch = false" />
                 <div class="absolute inset-y-0 right-1 flex items-center">
-                  <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small"
-                    aria-label="Reset search bytes to 16:9" @click="sourceHex = SOURCE_16_9" />
-                  <Button icon="pi pi-check" text rounded size="small" aria-label="Done editing search bytes"
-                    @click="editingSearch = false" />
+                  <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small" aria-label="Reset search bytes to 16:9" @click="sourceHex = SOURCE_16_9" />
+                  <Button icon="pi pi-check" text rounded size="small" aria-label="Done editing search bytes" @click="editingSearch = false" />
                 </div>
               </div>
-              <Tag v-else :value="sourceHex" :severity="sourceHex === SOURCE_16_9 ? 'secondary' : 'warn'"
-                class="font-mono cursor-pointer" @click="editingSearch = true" />
-              <i class="pi pi-arrow-right text-xs opacity-60 shrink-0 " />
+              <Tag v-else :value="sourceHex" :severity="sourceHex === SOURCE_16_9 ? 'secondary' : 'warn'" class="font-mono cursor-pointer" @click="editingSearch = true" />
+              <i class="pi pi-arrow-right text-xs opacity-60 shrink-0" />
               <Tag>
                 <span class="font-mono shrink-0">{{ store.effectiveReplaceHex || "—" }}</span>
               </Tag>
@@ -385,27 +452,19 @@
             <!-- </Tag> -->
           </section>
 
-
           <!-- 4. Patch / Restore -->
           <div class="flex gap-2">
-            <Button v-if="store.hasBackups" label="Restore" icon="pi pi-history" severity="secondary" outlined
-              :disabled="busy" @click="requestRestore" />
-            <Button class="flex-1 bg-indigo-500 text-white!" :label="busy ? 'Patching…' : 'Patch Executable'"
-              :disabled="!store.canPatch" :loading="busy" @click="requestPatch" />
+            <Button v-if="store.hasBackups" label="Restore" icon="pi pi-history" severity="secondary" outlined :disabled="busy" @click="requestRestore" />
+            <Button class="flex-1 bg-indigo-500 text-white!" :label="busy ? 'Patching…' : 'Patch Executable'" :disabled="!store.canPatch" :loading="busy" @click="requestPatch" />
           </div>
 
           <!-- 5. Result / errors -->
-          <Message v-if="filePath && store.validationError" severity="warn" :closable="false">{{ store.validationError
-          }}
-          </Message>
+          <Message v-if="filePath && store.validationError" severity="warn" :closable="false">{{ store.validationError }} </Message>
 
-          <Message v-if="lastResult" :severity="lastResult.ok ? 'success' : 'error'" closable
-            @close="lastResult = null">
+          <Message v-if="lastResult" :severity="lastResult.ok ? 'success' : 'error'" closable @close="lastResult = null">
             <div class="flex flex-col">
               <span>{{ lastResult.message }}</span>
-              <span v-if="lastResult.ok && lastResult.backupPath" class="text-xs font-mono break-all">
-                Backup: {{ lastResult.backupPath }}
-              </span>
+              <span v-if="lastResult.ok && lastResult.backupPath" class="text-xs font-mono break-all"> Backup: {{ lastResult.backupPath }} </span>
             </div>
           </Message>
         </div>
@@ -416,10 +475,14 @@
     <ConfirmDialog group="patch" :closable="false" :style="{ width: '22rem' }">
       <template #message>
         <div class="flex flex-col gap-2 text-sm w-full">
-          <div><span class="text-surface-500">File:</span> <span class="font-mono break-all">{{ filePath }}</span></div>
-          <div><span class="text-surface-500">Search:</span> <span class="font-mono">{{ store.prettySearch() }}</span>
+          <div>
+            <span class="text-surface-500">File:</span> <span class="font-mono break-all">{{ filePath }}</span>
           </div>
-          <div><span class="text-surface-500">Replace:</span> <span class="font-mono">{{ store.prettyReplace() }}</span>
+          <div>
+            <span class="text-surface-500">Search:</span> <span class="font-mono">{{ store.prettySearch() }}</span>
+          </div>
+          <div>
+            <span class="text-surface-500">Replace:</span> <span class="font-mono">{{ store.prettyReplace() }}</span>
           </div>
           <p class="text-xs text-surface-500 mt-2">A backup is made automatically before writing.</p>
         </div>
@@ -444,20 +507,35 @@
           <span class="text-gray-300">Ultrawide cutscene fixer</span>
           <span v-if="appVersion" class="text-gray-300">v{{ appVersion }}</span>
         </div>
-        <p class="text-surface-500 text-xs max-w-xs text-gray-500">
-          Patches game executables to replace the hardcoded aspect ratio with your monitor's ratio, removing cutscene
-          black
-          bars.
-        </p>
+        <p class="text-surface-500 text-xs max-w-xs text-gray-500">Patches game executables to replace the hardcoded aspect ratio with your monitor's ratio, removing cutscene black bars.</p>
       </div>
+    </Dialog>
+
+    <!-- Update check result -->
+    <Dialog v-model:visible="showUpdate" modal header="Check for updates" :closable="false" :style="{ width: '22rem' }">
+      <div class="flex flex-col gap-2 text-sm">
+        <template v-if="updateAvailable">
+          <p>A new version is available.</p>
+          <p class="font-mono text-surface-500">v{{ appVersion }} → v{{ latestVersion }}</p>
+        </template>
+        <template v-else>
+          <p>
+            You're on the latest version<span v-if="appVersion"> (v{{ appVersion }})</span>.
+          </p>
+        </template>
+      </div>
+      <template #footer>
+        <Button :label="updateAvailable ? 'Close' : 'OK'" severity="secondary" text @click="showUpdate = false" />
+        <Button v-if="updateAvailable" label="Download" icon="pi pi-download" class="text-white!" @click="downloadUpdate" />
+      </template>
     </Dialog>
 
     <!-- Reset saved data confirmation -->
     <ConfirmDialog group="reset" :closable="false" :style="{ width: '22rem' }">
       <template #message>
         <div class="flex flex-col gap-2 text-sm w-full">
-          <p>This will clear your recent files, restore the default target resolution (5120×2160), and reset the search
-            bytes to 16:9. Your theme preference is kept.</p>
+          <p>This will clear your recent files, restore the target resolution to your monitor's detected resolution, and reset the search bytes to 16:9.</p>
+          <p>Your theme preference is kept.</p>
         </div>
       </template>
     </ConfirmDialog>
