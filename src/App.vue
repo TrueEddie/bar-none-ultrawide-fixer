@@ -16,6 +16,7 @@
   import SplitButton from "primevue/splitbutton";
   import Tag from "primevue/tag";
   import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+  import { getVersion } from "@tauri-apps/api/app";
 
   import { usePatcherStore, type PatchResult } from "./stores/patcher";
   import { SOURCE_16_9 } from "./utils/hex";
@@ -28,6 +29,9 @@
 
   const showAbout = ref(false);
   const editingSearch = ref(false);
+  // App version, read from the compiled binary (tauri.conf.json) so About stays in sync.
+  const appVersion = ref("");
+  getVersion().then((v) => (appVersion.value = v));
 
   // Exe icons as data URLs, keyed by path (covers the selected file and recents).
   const recentIcons = ref<Record<string, string>>({});
@@ -431,7 +435,7 @@
         <div class="flex flex-col gap-1">
           <span class="text-base font-bold">Bar None</span>
           <span class="text-gray-300">Ultrawide cutscene fixer</span>
-          <span class="text-gray-300">v1.0.0</span>
+          <span v-if="appVersion" class="text-gray-300">v{{ appVersion }}</span>
         </div>
         <p class="text-surface-500 text-xs max-w-xs text-gray-500">
           Patches game executables to replace the hardcoded aspect ratio with your monitor's ratio, removing cutscene
