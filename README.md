@@ -134,7 +134,7 @@ git switch -c my-change
 # ...commit your work on the branch...
 git push -u origin my-change
 gh pr create --fill
-gh pr merge --squash   # self-merge once you're happy
+gh pr merge --merge   # self-merge once you're happy
 ```
 
 ---
@@ -150,3 +150,15 @@ gh pr merge --squash   # self-merge once you're happy
 The core patch logic and a timestamped-backup end-to-end test live in
 [`src-tauri/src/lib.rs`](src-tauri/src/lib.rs); run them with `cargo test --lib` from
 `src-tauri/`.
+
+---
+
+## License
+
+Bar None is **source-available** and **free for noncommercial use** under the
+[PolyForm Noncommercial License 1.0.0](LICENSE). You're welcome to use, modify, and share
+it for personal, hobby, educational, and other noncommercial purposes. **Commercial use is
+not permitted.** This is not an OSI "open source" license. See [`LICENSE`](LICENSE) for the
+full terms.
+
+Copyright (c) 2026 Eddie Cosme.
