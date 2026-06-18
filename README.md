@@ -14,6 +14,14 @@ your resolution, click Patch. It always makes a backup first.
 > systems in multiplayer games. Use it on single-player games, at your own risk. A
 > timestamped backup is always created so you can restore the original.
 
+## Download
+
+**[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** — grab `bar-none.exe` from the latest release. No installer; just run it.
+
+If you find Bar None useful, you can support development:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/L3L31GRM9L)
+
 ---
 
 ## How it works
@@ -38,21 +46,24 @@ safe.
 ## Using the app
 
 1. **Launch `bar-none.exe`.** No installation required.
-2. **Choose .exe…** — select your game's executable.
-3. **Search for** — leave this at the default `39 8E E3 3F` (16:9). Almost every affected
-   game uses this. Only change it if you know the game's default differs.
-4. **Replace with** — pick one of three modes:
-   - **Preset** — choose a common ultrawide resolution from the dropdown.
-   - **Resolution** — type any `width × height`; the app computes the bytes for you.
-   - **Custom hex** — type the raw "search for" and "replace with" bytes yourself (for
-     games whose default isn't 16:9).
+2. **Search** — click to pick your game's executable. The dropdown next to it lists your
+   **last 5 executables** (with their icons) for quick re-selection.
+3. **Target resolution** — type your monitor's `width × height` (e.g. `3440 × 1440`). The
+   app computes the target aspect bytes live and shows them as the **→ to** value.
+4. **From bytes** — shown as a tag, defaulting to `39 8E E3 3F` (16:9), which almost every
+   affected game uses. **Click the tag** to edit it inline for the rare game whose default
+   differs; the ↺ button resets it back to 16:9. The chosen "from" bytes are remembered
+   per-executable.
 5. **Patch executable** — review the confirmation dialog (file, search bytes, replace
    bytes) and confirm.
 6. You'll see **"Replaced N occurrence(s)"** and the path of the backup that was created.
 
 Then launch the game and enjoy full-screen cutscenes.
 
-### Backups
+The hamburger menu (top-left) holds a **light/dark theme** toggle, **Reset saved data**
+(clears recents and restores defaults — see below), and **About**.
+
+### Backups & restoring
 
 A backup is **always** made automatically, right before patching, named:
 
@@ -61,8 +72,17 @@ A backup is **always** made automatically, right before patching, named:
 ```
 
 It's saved next to the game's exe. The timestamp means an existing backup is never
-overwritten. **To undo a patch**, delete the patched exe and rename the `.bak` back to the
-original name (or just re-verify the game files through Steam/Epic).
+overwritten. When a backup exists for the selected exe, a **Restore** button appears in the
+app — one click rolls the executable back to its most recent backup. (You can also undo
+manually by renaming the `.bak` back to the original name, or re-verifying the game files
+through Steam/Epic.)
+
+### Saved data
+
+Bar None remembers your theme, target resolution, "from" bytes, and the last 5
+executables in a small `settings.json` in your Windows app-config folder. **Reset saved
+data** in the menu clears all of it and returns the app to its first-run state (your theme
+choice is kept).
 
 ### If it says "pattern not found"
 
@@ -100,6 +120,21 @@ bundles (`.msi` / NSIS) are disabled by default; re-enable them by setting
 
 ---
 
+## Contributing
+
+`main` is protected — direct pushes are blocked and changes land via pull request. Work on
+a branch and open a PR:
+
+```sh
+git switch -c my-change
+# ...commit your work on the branch...
+git push -u origin my-change
+gh pr create --fill
+gh pr merge --squash   # self-merge once you're happy
+```
+
+---
+
 ## Tech stack
 
 - **[Tauri](https://tauri.app/) v2** — desktop shell; all file I/O (read, backup, write)
@@ -111,11 +146,3 @@ bundles (`.msi` / NSIS) are disabled by default; re-enable them by setting
 The core patch logic and a timestamped-backup end-to-end test live in
 [`src-tauri/src/lib.rs`](src-tauri/src/lib.rs); run them with `cargo test --lib` from
 `src-tauri/`.
-
----
-
-## Credits
-
-The byte-replacement technique and the resolution value list come from the ultrawide
-community — see the [original cutscene fixer thread](https://www.reddit.com/r/ultrawidemasterrace/comments/k0ucry/ultrawide_gaming_cutscene_fixer_application/)
-on r/ultrawidemasterrace.
