@@ -431,7 +431,7 @@
         <div class="flex flex-col gap-1">
           <span class="text-base font-bold">Bar None</span>
           <span class="text-gray-300">Ultrawide cutscene fixer</span>
-          <span class="text-gray-300">v0.1.0</span>
+          <span class="text-gray-300">v1.0.0</span>
         </div>
         <p class="text-surface-500 text-xs max-w-xs text-gray-500">
           Patches game executables to replace the hardcoded aspect ratio with your monitor's ratio, removing cutscene
