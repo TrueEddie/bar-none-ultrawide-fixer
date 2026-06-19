@@ -10,7 +10,8 @@
 **[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** from the latest release. No installer; just run it.
 
 - **Windows:** grab `bar-none.exe`.
-- **Linux (beta):** grab the `…-beta.AppImage` (`chmod +x` it, then run) or the `…-beta.deb`. _Untested/experimental — if you hit issues, please open an issue._ For Proton/Wine games, point Bar None at the Windows `.exe` inside the game's prefix.
+
+- **Linux (beta):** grab the `…-beta.AppImage` (`chmod +x` it, then run) or the `…-beta.deb`. _Untested/experimental — if you encounter any problems, please open an issue._ For Proton/Wine games, point Bar None at the Windows `.exe` inside the game's prefix.
 
 If you find Bar None useful, you can support development:
 
@@ -36,7 +37,7 @@ your resolution, click Patch. It always makes a backup first.
 
 ## Before & after
 
-The same _007 First Light_ cutscene on a super-ultrawide display. Before, it's locked to
+The same _007 First Light_ cutscene on an ultrawide display. Before, it's locked to
 16:9 with black bars on all four sides; after patching with Bar None, it fills the screen.
 
 **Before** — black bars boxing in the cutscene:
