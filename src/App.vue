@@ -355,13 +355,13 @@
 
 <template>
   <main ref="rootEl" class="w-fit text-surface-900 dark:text-surface-0">
-    <Card class="w-96 overflow-hidden border border-gray-500 !shadow-none rounded-xl">
+    <Card class="w-96 overflow-hidden border border-gray-500 shadow-none! rounded-xl">
       <template #header>
         <div class="bg-linear-to-b from-indigo-950 to-indigo-500 flex flex-col drop-shadow-md">
           <!-- title-bar controls: hamburger left, minimize/close right (the drag handle) -->
           <div class="flex items-center justify-between px-1 pt-1" data-tauri-drag-region>
             <div class="relative">
-              <Button icon="pi pi-bars" text rounded size="small" :aria-label="updateAvailable ? 'Menu (update available)' : 'Menu'" class="!text-white" @click="toggleMenu" />
+              <Button icon="pi pi-bars" text rounded size="small" :aria-label="updateAvailable ? 'Menu (update available)' : 'Menu'" class="text-white!" @click="toggleMenu" />
               <Badge v-if="updateAvailable" severity="danger" class="absolute! top-1 right-1 h-2! min-w-2! w-2! p-0 pointer-events-none" />
             </div>
             <Menu ref="menu" :model="menuItems" popup append-to="body">
@@ -374,8 +374,8 @@
               </template>
             </Menu>
             <div class="flex items-center">
-              <Button icon="pi pi-minus" text rounded size="small" aria-label="Minimize" class="!text-white" @click="minimizeWindow" />
-              <Button icon="pi pi-times" text rounded size="small" aria-label="Close" class="!text-white" @click="closeWindow" />
+              <Button icon="pi pi-minus" text rounded size="small" aria-label="Minimize" class="text-white!" @click="minimizeWindow" />
+              <Button icon="pi pi-times" text rounded size="small" aria-label="Close" class="text-white!" @click="closeWindow" />
             </div>
           </div>
           <!-- logo + title -->
@@ -427,9 +427,9 @@
                 <label class="text-sm font-medium">Target Resolution</label>
               </div>
               <div class="flex items-center gap-2 w-full">
-                <InputNumber v-model="calcWidth" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" />
+                <InputNumber v-model="calcWidth" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" :pt="{ pcInputText: { root: { autocomplete: 'off' } } }" />
                 <span class="text-surface-500 shrink-0">×</span>
-                <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" />
+                <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" :pt="{ pcInputText: { root: { autocomplete: 'off' } } }" />
               </div>
               <Button label="Auto" text size="small" aria-label="Use my monitor's resolution" class="px-3" @click="useMonitorResolution" />
             </Tag>
@@ -437,7 +437,7 @@
             <div class="flex items-center gap-2 text-sm mt-3 justify-between">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
               <div v-if="editingSearch" class="relative shrink-0">
-                <InputText :value="sourceHex" class="font-mono w-46 pr-16" autofocus maxlength="11" @input="onHexInput" @keyup.enter="editingSearch = false" />
+                <InputText :value="sourceHex" class="font-mono w-46 pr-16" autocomplete="off" autofocus maxlength="11" @input="onHexInput" @keyup.enter="editingSearch = false" />
                 <div class="absolute inset-y-0 right-1 flex items-center">
                   <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small" aria-label="Reset search bytes to 16:9" @click="sourceHex = SOURCE_16_9" />
                   <Button icon="pi pi-check" text rounded size="small" aria-label="Done editing search bytes" @click="editingSearch = false" />
