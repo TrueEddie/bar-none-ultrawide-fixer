@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Bar None",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "identifier": "com.barnone.ultrawidefixer",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -19,7 +19,9 @@
         "decorations": false,
         "transparent": true,
         "shadow": false,
-        "center": true
+        "center": true,
+        "visible": false,
+        "additionalBrowserArgs": "--disable-features=msWebView2EnableDraggableRegions,CalculateNativeWinOcclusion --disable-gpu"
       }
     ],
     "security": {

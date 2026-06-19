@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+  import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
   import { storeToRefs } from "pinia";
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
@@ -34,6 +34,8 @@
   const showAbout = ref(false);
   const editingSearch = ref(false);
   const hexInvalid = ref(false);
+  // True while a file is being dragged over the window (drives the drop overlay).
+  const dragActive = ref(false);
   // App version, read from the compiled binary (tauri.conf.json) so About stays in sync.
   const appVersion = ref("");
   getVersion().then((v) => (appVersion.value = v));
@@ -126,6 +128,12 @@
       command: () => {
         showAbout.value = true;
       },
+    },
+    { separator: true },
+    {
+      label: "Exit",
+      icon: "pi pi-sign-out",
+      command: closeWindow,
     },
   ]);
   /** Normalize raw input to "XX XX XX XX": hex only, uppercase, byte-paired, max 4 bytes. */
@@ -319,6 +327,7 @@
   let lastW = 0;
   let lastH = 0;
   let resizeObserver: ResizeObserver | null = null;
+  let unlistenDragDrop: (() => void) | null = null;
   async function fitWindowToContent() {
     const el = rootEl.value;
     if (!el) return;
@@ -331,15 +340,23 @@
     await getCurrentWindow().setSize(new LogicalSize(w, h));
   }
   onMounted(async () => {
+    const win = getCurrentWindow();
     resizeObserver = new ResizeObserver(() => fitWindowToContent());
     if (rootEl.value) resizeObserver.observe(rootEl.value);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await fitWindowToContent();
 
-    // Borderless transparent windows can launch behind other windows; bring it
-    // to the front once it has sized itself.
+    // The window starts hidden (tauri.conf.json `visible: false`). Size it to
+    // content while hidden — layout is available even before the window paints —
+    // then reveal it (config `center: true` handles placement). This avoids the
+    // borderless window flashing up unpainted or behind other windows on launch.
+    await nextTick();
+    await fitWindowToContent();
     try {
-      await getCurrentWindow().setFocus();
+      await win.show();
+    } catch {
+      // ignore
+    }
+    try {
+      await win.setFocus();
     } catch {
       // ignore
     }
@@ -365,12 +382,38 @@
 
     // Silent update check: set the badge if a newer release exists (no popup).
     void refreshUpdateState();
+
+    // Drag-and-drop: let the user drop a game .exe onto the window.
+    unlistenDragDrop = await getCurrentWindow().onDragDropEvent((event) => {
+      const payload = event.payload;
+      if (payload.type === "enter" || payload.type === "over") {
+        dragActive.value = true;
+      } else if (payload.type === "leave") {
+        dragActive.value = false;
+      } else if (payload.type === "drop") {
+        dragActive.value = false;
+        const exe = payload.paths.find((p) => p.toLowerCase().endsWith(".exe"));
+        if (exe) {
+          void selectFile(exe);
+        } else if (payload.paths.length) {
+          lastResult.value = { ok: false, message: "That's not an .exe — drop a game executable." };
+        }
+      }
+    });
   });
-  onBeforeUnmount(() => resizeObserver?.disconnect());
+  onBeforeUnmount(() => {
+    resizeObserver?.disconnect();
+    unlistenDragDrop?.();
+  });
 </script>
 
 <template>
-  <main ref="rootEl" class="w-fit text-surface-900 dark:text-surface-0">
+  <main ref="rootEl" class="relative w-fit text-surface-900 dark:text-surface-0">
+    <!-- Drag-and-drop overlay: shown while a file is dragged over the window -->
+    <div v-if="dragActive" class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-400 bg-indigo-950/80 pointer-events-none">
+      <i class="pi pi-file-import text-3xl text-white" />
+      <span class="text-sm font-medium text-white">Drop a game .exe to load it</span>
+    </div>
     <Card class="w-96 overflow-hidden border border-gray-500 shadow-none! rounded-xl">
       <template #header>
         <div class="bg-linear-to-b from-indigo-950 to-indigo-500 flex flex-col drop-shadow-md">
@@ -417,10 +460,7 @@
                 <span class="truncate text-sm">{{ exeName }}</span>
               </template>
               <template v-else>
-                <div class="w-7 h-7 shrink-0 rounded border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
-                  <i class="pi pi-image text-xs opacity-40" />
-                </div>
-                <span class="text-sm opacity-60">No executable selected</span>
+                <span class="text-sm opacity-60">Drop an .exe here, or Search</span>
               </template>
             </div>
             <SplitButton label="Search" severity="secondary" :model="recentMenuItems" @click="pickFile">
