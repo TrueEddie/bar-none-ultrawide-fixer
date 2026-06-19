@@ -7,7 +7,10 @@
 [![Latest release](https://img.shields.io/github/v/release/TrueEddie/bar-none-ultrawide-fixer?label=latest&color=brightgreen)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)
 [![Total downloads](https://img.shields.io/github/downloads/TrueEddie/bar-none-ultrawide-fixer/total?label=downloads&color=blue)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases)
 
-**[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** — grab `bar-none.exe` from the latest release. No installer; just run it.
+**[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** from the latest release. No installer; just run it.
+
+- **Windows:** grab `bar-none.exe`.
+- **Linux (beta):** grab the `…-beta.AppImage` (`chmod +x` it, then run) or the `…-beta.deb`. _Untested/experimental — if you hit issues, please open an issue._ For Proton/Wine games, point Bar None at the Windows `.exe` inside the game's prefix.
 
 If you find Bar None useful, you can support development:
 

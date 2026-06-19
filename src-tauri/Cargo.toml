@@ -30,5 +30,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-dialog = "2"
 chrono = "0.4"
+
+# Native icon extraction. Windows reads the icon embedded in the .exe; macOS reads
+# the file-type icon. Linux ELF binaries don't embed icons (and Proton .exe icons
+# aren't exposed the same way), so the dependency is omitted there and the
+# `get_exe_icon` command returns an error the UI already handles gracefully.
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 systemicons = "0.9.13"
 

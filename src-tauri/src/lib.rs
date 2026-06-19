@@ -180,9 +180,17 @@ fn restore_backup(path: String, backup_path: String) -> Result<(), String> {
 }
 
 /// Extract the icon embedded in an executable, returned as PNG bytes.
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 #[tauri::command]
 fn get_exe_icon(path: String) -> Result<Vec<u8>, String> {
     systemicons::get_icon(&path, 64).map_err(|e| format!("{e:?}"))
+}
+
+/// No native icon source on Linux; the UI treats this error as "no icon".
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+#[tauri::command]
+fn get_exe_icon(_path: String) -> Result<Vec<u8>, String> {
+    Err("Icon extraction is not supported on this platform.".into())
 }
 
 /// Return only the paths that still exist on disk (to prune stale recents).
