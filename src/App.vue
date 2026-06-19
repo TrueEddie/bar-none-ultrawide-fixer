@@ -21,7 +21,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
 
   import { usePatcherStore, type PatchResult } from "./stores/patcher";
-  import { SOURCE_16_9 } from "./utils/hex";
+  import { SOURCE_16_9, parseHex } from "./utils/hex";
   import { toggleTheme, isDark } from "./utils/theme";
   import { loadSettings } from "./utils/settings";
   import { detectMonitorResolution } from "./utils/monitor";
@@ -33,6 +33,7 @@
 
   const showAbout = ref(false);
   const editingSearch = ref(false);
+  const hexInvalid = ref(false);
   // App version, read from the compiled binary (tauri.conf.json) so About stays in sync.
   const appVersion = ref("");
   getVersion().then((v) => (appVersion.value = v));
@@ -148,6 +149,23 @@
     // model value is unchanged (and Vue skips the re-render).
     el.value = formatted;
     sourceHex.value = formatted;
+    hexInvalid.value = false; // clear the invalid flag as the user edits
+  }
+
+  /** The "from" hex is valid only when it's a complete 4-byte value. */
+  const hexValid = computed(() => parseHex(sourceHex.value)?.length === 4);
+  /** Save the edited hex; if it isn't 4 valid bytes, flag invalid and keep editing. */
+  function saveHex() {
+    if (hexValid.value) {
+      hexInvalid.value = false;
+      editingSearch.value = false;
+    } else {
+      hexInvalid.value = true;
+    }
+  }
+  function startEditingHex() {
+    hexInvalid.value = false;
+    editingSearch.value = true;
   }
 
   function requestReset() {
@@ -437,13 +455,13 @@
             <div class="flex items-center gap-2 text-sm mt-3 justify-between">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
               <div v-if="editingSearch" class="relative shrink-0">
-                <InputText :value="sourceHex" class="font-mono w-46 pr-16" autocomplete="off" autofocus maxlength="11" @input="onHexInput" @keyup.enter="editingSearch = false" />
+                <InputText :value="sourceHex" :invalid="hexInvalid" class="font-mono w-46 pr-16" autocomplete="off" autofocus maxlength="11" @input="onHexInput" @keyup.enter="saveHex" />
                 <div class="absolute inset-y-0 right-1 flex items-center">
-                  <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small" aria-label="Reset search bytes to 16:9" @click="sourceHex = SOURCE_16_9" />
-                  <Button icon="pi pi-check" text rounded size="small" aria-label="Done editing search bytes" @click="editingSearch = false" />
+                  <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small" aria-label="Reset search bytes to 16:9" @click="sourceHex = SOURCE_16_9; hexInvalid = false" />
+                  <Button icon="pi pi-check" text rounded size="small" aria-label="Done editing search bytes" @click="saveHex" />
                 </div>
               </div>
-              <Tag v-else :value="sourceHex" :severity="sourceHex === SOURCE_16_9 ? 'secondary' : 'warn'" class="font-mono cursor-pointer" @click="editingSearch = true" />
+              <Tag v-else :value="sourceHex" :severity="sourceHex === SOURCE_16_9 ? 'secondary' : 'warn'" class="font-mono cursor-pointer" @click="startEditingHex" />
               <i class="pi pi-arrow-right text-xs opacity-60 shrink-0" />
               <Tag>
                 <span class="font-mono shrink-0">{{ store.effectiveReplaceHex || "—" }}</span>
