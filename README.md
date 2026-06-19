@@ -4,6 +4,9 @@
 
 ## Download
 
+[![Latest release](https://img.shields.io/github/v/release/TrueEddie/bar-none-ultrawide-fixer?label=latest&color=brightgreen)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)
+[![Total downloads](https://img.shields.io/github/downloads/TrueEddie/bar-none-ultrawide-fixer/total?label=downloads&color=blue)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases)
+
 **[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** — grab `bar-none.exe` from the latest release. No installer; just run it.
 
 If you find Bar None useful, you can support development:
