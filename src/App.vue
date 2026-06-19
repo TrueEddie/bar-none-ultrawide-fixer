@@ -127,6 +127,12 @@
         showAbout.value = true;
       },
     },
+    { separator: true },
+    {
+      label: "Exit",
+      icon: "pi pi-sign-out",
+      command: closeWindow,
+    },
   ]);
   /** Normalize raw input to "XX XX XX XX": hex only, uppercase, byte-paired, max 4 bytes. */
   function formatHex(raw: string): string {
