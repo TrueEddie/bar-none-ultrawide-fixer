@@ -43,7 +43,6 @@
   const latestVersion = ref("");
   const latestUrl = ref("");
   const showUpdate = ref(false);
-  const checkingUpdate = ref(false);
 
   /** Compare the latest release to the running version and update badge state. */
   async function refreshUpdateState(): Promise<boolean> {
@@ -57,12 +56,7 @@
 
   /** Hamburger "Check for updates": re-check, then show the result. */
   async function checkForUpdates() {
-    checkingUpdate.value = true;
-    try {
-      await refreshUpdateState();
-    } finally {
-      checkingUpdate.value = false;
-    }
+    await refreshUpdateState();
     showUpdate.value = true;
   }
 
@@ -438,7 +432,6 @@
           </section>
 
           <!-- 2. Target resolution + from → to hex -->
-
           <section class="flex flex-col gap-2">
             <Tag class="p-2 flex gap-4" severity="secondary">
               <div class="flex items-center text-center">
@@ -451,7 +444,6 @@
               </div>
               <Button label="Auto" text size="small" aria-label="Use my monitor's resolution" class="px-3" @click="useMonitorResolution" />
             </Tag>
-            <!-- <Tag> -->
             <div class="flex items-center gap-2 text-sm mt-3 justify-between">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
               <div v-if="editingSearch" class="relative shrink-0">
@@ -467,16 +459,15 @@
                 <span class="font-mono shrink-0">{{ store.effectiveReplaceHex || "—" }}</span>
               </Tag>
             </div>
-            <!-- </Tag> -->
           </section>
 
-          <!-- 4. Patch / Restore -->
+          <!-- 3. Patch / Restore -->
           <div class="flex gap-2">
             <Button v-if="store.hasBackups" label="Restore" icon="pi pi-history" severity="secondary" outlined :disabled="busy" @click="requestRestore" />
             <Button class="flex-1 bg-indigo-500 text-white!" :label="busy ? 'Patching…' : 'Patch Executable'" :disabled="!store.canPatch" :loading="busy" @click="requestPatch" />
           </div>
 
-          <!-- 5. Result / errors -->
+          <!-- 4. Result / errors -->
           <Message v-if="filePath && store.validationError" severity="warn" :closable="false">{{ store.validationError }} </Message>
 
           <Message v-if="lastResult" :severity="lastResult.ok ? 'success' : 'error'" closable @close="lastResult = null">
