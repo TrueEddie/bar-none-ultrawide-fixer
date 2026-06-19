@@ -11,6 +11,21 @@ struct PatchResult {
     backup_path: String,
 }
 
+/// Map a file-write failure into an actionable message. A running game holds its
+/// exe open for writing, so the OS rejects the write with a sharing/lock violation
+/// (Windows) or a permission error — in that case tell the user to close the game.
+fn write_error_message(action: &str, e: &std::io::Error) -> String {
+    use std::io::ErrorKind;
+    // Windows: 32 = ERROR_SHARING_VIOLATION, 33 = ERROR_LOCK_VIOLATION.
+    let in_use = matches!(e.raw_os_error(), Some(32) | Some(33))
+        || e.kind() == ErrorKind::PermissionDenied;
+    if in_use {
+        "The file is in use — close the game (and any launcher running it), then try again.".into()
+    } else {
+        format!("Failed to {action}: {e}")
+    }
+}
+
 /// Count non-overlapping occurrences of `needle` in `haystack`.
 fn count_occurrences(haystack: &[u8], needle: &[u8]) -> usize {
     if needle.is_empty() || haystack.len() < needle.len() {
@@ -78,6 +93,13 @@ fn patch_exe(path: String, search: Vec<u8>, replace: Vec<u8>) -> Result<PatchRes
         );
     }
 
+    // Probe writability before backing up, so a locked exe (the game is still
+    // running) reports a clear "close the game" error instead of leaving an orphan
+    // backup. Opening for write does not modify the file.
+    if let Err(e) = fs::OpenOptions::new().write(true).open(p) {
+        return Err(write_error_message("open the file for writing", &e));
+    }
+
     // Always back up first, with a timestamped name so an existing backup is never clobbered.
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let backup_path: PathBuf = {
@@ -88,7 +110,7 @@ fn patch_exe(path: String, search: Vec<u8>, replace: Vec<u8>) -> Result<PatchRes
     fs::copy(p, &backup_path).map_err(|e| format!("Failed to create backup: {e}"))?;
 
     let replaced = replace_all(&mut data, &search, &replace);
-    fs::write(p, &data).map_err(|e| format!("Failed to write patched file: {e}"))?;
+    fs::write(p, &data).map_err(|e| write_error_message("write the patched file", &e))?;
 
     Ok(PatchResult {
         count: replaced,
@@ -173,9 +195,9 @@ fn restore_backup(path: String, backup_path: String) -> Result<(), String> {
 
     // Windows rename can't overwrite, so remove the current file first, then rename in.
     if p.exists() {
-        fs::remove_file(p).map_err(|e| format!("Failed to remove current file: {e}"))?;
+        fs::remove_file(p).map_err(|e| write_error_message("remove the current file", &e))?;
     }
-    fs::rename(b, p).map_err(|e| format!("Failed to restore backup: {e}"))?;
+    fs::rename(b, p).map_err(|e| write_error_message("restore the backup", &e))?;
     Ok(())
 }
 
@@ -264,6 +286,26 @@ mod tests {
         assert_eq!(count_occurrences(&data, &replace), 2);
         assert_eq!(count_occurrences(&data, &search), 0);
         assert_eq!(data.len(), 12, "file size must not change");
+    }
+
+    #[test]
+    fn in_use_errors_get_a_close_the_game_message() {
+        use std::io::{Error, ErrorKind};
+
+        // Windows sharing/lock violations and permission errors -> actionable hint.
+        for e in [
+            Error::from_raw_os_error(32),
+            Error::from_raw_os_error(33),
+            Error::new(ErrorKind::PermissionDenied, "denied"),
+        ] {
+            let msg = write_error_message("write the patched file", &e);
+            assert!(msg.contains("close the game"), "got: {msg}");
+        }
+
+        // Other errors keep the generic, action-specific wording.
+        let other = Error::new(ErrorKind::NotFound, "nope");
+        let msg = write_error_message("write the patched file", &other);
+        assert!(msg.contains("Failed to write the patched file"), "got: {msg}");
     }
 
     #[test]
