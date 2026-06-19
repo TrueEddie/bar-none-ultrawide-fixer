@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+  import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
   import { storeToRefs } from "pinia";
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
@@ -340,15 +340,23 @@
     await getCurrentWindow().setSize(new LogicalSize(w, h));
   }
   onMounted(async () => {
+    const win = getCurrentWindow();
     resizeObserver = new ResizeObserver(() => fitWindowToContent());
     if (rootEl.value) resizeObserver.observe(rootEl.value);
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await fitWindowToContent();
 
-    // Borderless transparent windows can launch behind other windows; bring it
-    // to the front once it has sized itself.
+    // The window starts hidden (tauri.conf.json `visible: false`). Size it to
+    // content while hidden — layout is available even before the window paints —
+    // then reveal it (config `center: true` handles placement). This avoids the
+    // borderless window flashing up unpainted or behind other windows on launch.
+    await nextTick();
+    await fitWindowToContent();
     try {
-      await getCurrentWindow().setFocus();
+      await win.show();
+    } catch {
+      // ignore
+    }
+    try {
+      await win.setFocus();
     } catch {
       // ignore
     }

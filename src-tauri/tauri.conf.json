@@ -19,7 +19,9 @@
         "decorations": false,
         "transparent": true,
         "shadow": false,
-        "center": true
+        "center": true,
+        "visible": false,
+        "additionalBrowserArgs": "--disable-features=msWebView2EnableDraggableRegions,CalculateNativeWinOcclusion --disable-gpu"
       }
     ],
     "security": {
