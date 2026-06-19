@@ -446,7 +446,7 @@
                 <span class="text-surface-500 shrink-0">×</span>
                 <InputNumber v-model="calcHeight" :use-grouping="false" :min="1" fluid class="flex-1 min-w-0" input-class="text-center" :pt="{ pcInputText: { root: { autocomplete: 'off' } } }" />
               </div>
-              <Button label="Auto" text size="small" aria-label="Use my monitor's resolution" class="px-3" @click="useMonitorResolution" />
+              <Button label="Detect" text size="small" aria-label="Use my monitor's resolution" class="px-3" @click="useMonitorResolution" />
             </Tag>
             <div class="flex items-center gap-2 text-sm mt-3 justify-between">
               <!-- from: a tag when idle, an inline input (with reset + save inside) when editing -->
