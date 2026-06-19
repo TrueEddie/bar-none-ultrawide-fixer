@@ -1,0 +1,69 @@
+name: Build & Publish Linux
+
+# Manual, on-demand Linux build. Builds an AppImage + .deb and attaches them as
+# assets to the most recent GitHub release (next to the Windows bar-none.exe).
+# Does not bump the version or create a new release.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Bundling is disabled by default in tauri.conf.json (bundle.active = false),
+      # so force the Linux bundles explicitly.
+      - name: Build AppImage + deb
+        run: npm run tauri build -- --bundles appimage deb
+
+      # Tauri names bundles from the product name ("Bar None"), which contains a
+      # space. Copy them to clean, predictable asset names before uploading.
+      # The "-beta" suffix marks the Linux build as untested/experimental.
+      - name: Collect bundles with clean names
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          mkdir -p dist-linux
+          cp src-tauri/target/release/bundle/appimage/*.AppImage "dist-linux/bar-none_${VERSION}_amd64-beta.AppImage"
+          cp src-tauri/target/release/bundle/deb/*.deb "dist-linux/bar-none_${VERSION}_amd64-beta.deb"
+          ls -la dist-linux
+
+      - name: Attach to the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view --json tagName -q .tagName)
+          echo "Uploading Linux bundles to release $TAG"
+          gh release upload "$TAG" dist-linux/* --clobber
+
+      # Also keep a copy on the run itself for quick download / debugging.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bar-none-linux
+          path: dist-linux/*
+          if-no-files-found: error

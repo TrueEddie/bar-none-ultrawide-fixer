@@ -414,7 +414,6 @@
             >
               <template v-if="filePath">
                 <img v-if="iconUrl" :src="iconUrl" alt="" class="w-7 h-7 shrink-0 rounded" />
-                <i v-else class="pi pi-file shrink-0 opacity-50" />
                 <span class="truncate text-sm">{{ exeName }}</span>
               </template>
               <template v-else>
@@ -428,7 +427,6 @@
               <template #item="{ item, props }">
                 <a v-bind="props.action" class="flex items-center gap-2 px-2 py-2">
                   <img v-if="item.path && recentIcons[item.path]" :src="recentIcons[item.path]" alt="" class="w-5 h-5 shrink-0 rounded" />
-                  <i v-else-if="item.path" class="pi pi-file text-xs opacity-50 shrink-0" />
                   <span class="truncate text-sm">{{ item.label }}</span>
                 </a>
               </template>
