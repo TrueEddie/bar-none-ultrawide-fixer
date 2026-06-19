@@ -161,6 +161,10 @@
     hexInvalid.value = false;
     editingSearch.value = true;
   }
+  function resetHex() {
+    sourceHex.value = SOURCE_16_9;
+    hexInvalid.value = false;
+  }
 
   function requestReset() {
     confirm.require({
@@ -406,7 +410,7 @@
           <section class="flex gap-2 w-full items-stretch">
             <div
               v-tooltip.top="filePath ? { value: filePath, class: 'max-w-xs break-all font-mono text-xs' } : undefined"
-              class="flex-1 flex items-center gap-2 py-1 px-2 rounded-md border dark:bg-black border-gray-300 dark:border-gray-600 overflow-hidden"
+              class="flex-1 flex items-center gap-2 py-1 px-2 rounded-md border-none bg-(--p-tag-secondary-background) dark:bg-black overflow-hidden"
             >
               <template v-if="filePath">
                 <img v-if="iconUrl" :src="iconUrl" alt="" class="w-7 h-7 shrink-0 rounded" />
@@ -449,7 +453,7 @@
               <div v-if="editingSearch" class="relative shrink-0">
                 <InputText :value="sourceHex" :invalid="hexInvalid" class="font-mono w-46 pr-16" autocomplete="off" autofocus maxlength="11" @input="onHexInput" @keyup.enter="saveHex" />
                 <div class="absolute inset-y-0 right-1 flex items-center">
-                  <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small" aria-label="Reset search bytes to 16:9" @click="sourceHex = SOURCE_16_9; hexInvalid = false" />
+                  <Button v-if="sourceHex !== SOURCE_16_9" icon="pi pi-replay" text rounded size="small" aria-label="Reset search bytes to 16:9" @click="resetHex" />
                   <Button icon="pi pi-check" text rounded size="small" aria-label="Done editing search bytes" @click="saveHex" />
                 </div>
               </div>
@@ -513,10 +517,10 @@
         <img src="/logo.png" alt="Bar None icon" class="w-16 h-16" />
         <div class="flex flex-col gap-1">
           <span class="text-base font-bold">Bar None</span>
-          <span class="text-gray-300">Ultrawide cutscene fixer</span>
-          <span v-if="appVersion" class="text-gray-300">v{{ appVersion }}</span>
+          <span class="dark:text-gray-300 text-gray-500">Ultrawide cutscene fixer</span>
+          <span v-if="appVersion" class="dark:text-gray-300 text-gray-500">v{{ appVersion }}</span>
         </div>
-        <p class="text-surface-500 text-xs max-w-xs text-gray-500">Patches game executables to replace the hardcoded aspect ratio with your monitor's ratio, removing cutscene black bars.</p>
+        <p class="text-xs max-w-xs dark:text-gray-300 text-gray-500">Patches game executables to replace the hardcoded aspect ratio with your monitor's ratio, removing cutscene black bars.</p>
       </div>
     </Dialog>
 
