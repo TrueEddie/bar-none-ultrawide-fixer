@@ -5,7 +5,7 @@
 ## Download
 
 [![Latest release](https://img.shields.io/github/v/release/TrueEddie/bar-none-ultrawide-fixer?label=latest&color=brightgreen)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)
-[![Total downloads](https://img.shields.io/github/downloads/TrueEddie/bar-none-ultrawide-fixer/total?label=downloads&color=blue)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases)
+[![Total downloads](https://img.shields.io/github/downloads/TrueEddie/bar-none-ultrawide-fixer/total?label=downloads&color=blue&cacheSeconds=3600&v=2)](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases)
 
 **[⬇️ Download the latest version](https://github.com/TrueEddie/bar-none-ultrawide-fixer/releases/latest)** from the latest release. No installer; just run it.
 
