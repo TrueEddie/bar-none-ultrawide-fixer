@@ -265,8 +265,37 @@
     immediate: true,
   });
 
-  function requestPatch() {
+  // Match count from the pre-patch scan, shown as a severity tag in the confirm
+  // dialog. Low counts are normal; high counts may be coincidental float matches.
+  const matchCount = ref(0);
+  // False when the pre-patch scan couldn't run; the dialog then omits the count tag.
+  const matchKnown = ref(false);
+  const matchSeverity = computed(() => store.matchSeverity(matchCount.value));
+  const matchLabel = computed(() => `${matchCount.value} match${matchCount.value === 1 ? "" : "es"}`);
+
+  async function requestPatch() {
     if (!store.canPatch) return;
+    // Dry-run scan first to surface the match count in the dialog. The patch itself
+    // doesn't re-scan. A scan failure is non-fatal — we still open the dialog
+    // (without a count) and let the patch report a no-match if it comes to that.
+    busy.value = true;
+    lastResult.value = null;
+    try {
+      matchCount.value = await invoke<number>("scan_exe", {
+        path: filePath.value,
+        search: store.searchBytes,
+      });
+      matchKnown.value = true;
+    } catch {
+      matchKnown.value = false;
+    } finally {
+      busy.value = false;
+    }
+    // Only short-circuit when we actually confirmed there's nothing to patch.
+    if (matchKnown.value && matchCount.value === 0) {
+      store.setError("Pattern not found — the game may already be patched or uses a different default value.");
+      return;
+    }
     confirm.require({
       group: "patch",
       header: "Confirm patch",
@@ -525,17 +554,22 @@
     <!-- Patch confirmation -->
     <ConfirmDialog group="patch" :closable="false" :style="{ width: '22rem' }">
       <template #message>
-        <div class="flex flex-col gap-2 text-sm w-full">
-          <div>
-            <span class="text-surface-500">File:</span> <span class="font-mono break-all">{{ filePath }}</span>
+        <div class="flex flex-col gap-5 text-sm w-full">
+          <div class="flex items-center gap-2">
+            <img v-if="iconUrl" :src="iconUrl" alt="" class="w-5 h-5 shrink-0 rounded" />
+            <span v-tooltip.top="{ value: filePath, class: 'max-w-xs break-all font-mono text-xs' }" class="truncate font-medium">{{ exeName }}</span>
           </div>
-          <div>
-            <span class="text-surface-500">Search:</span> <span class="font-mono">{{ store.prettySearch() }}</span>
+          <div class="flex items-center gap-2 font-mono text-xs text-surface-500">
+            <Tag severity="secondary" class="flex gap-1">
+              <span>{{ store.prettySearch() }}</span>
+            </Tag>
+            <i class="pi pi-arrow-right text-[0.6rem]" />
+            <span>{{ store.prettyReplace() }}</span>
+            <Tag v-if="matchKnown" :value="matchLabel" :severity="matchSeverity" class="ml-auto shrink-0 text-nowrap" />
           </div>
-          <div>
-            <span class="text-surface-500">Replace:</span> <span class="font-mono">{{ store.prettyReplace() }}</span>
-          </div>
-          <p class="text-xs text-surface-500 mt-2">A backup is made automatically before writing.</p>
+          <p v-if="matchKnown && matchSeverity === 'warn'" class="text-xs text-amber-600 dark:text-amber-400">More matches than expected — double-check the search bytes.</p>
+          <p v-else-if="matchKnown && matchSeverity === 'danger'" class="text-xs text-red-600 dark:text-red-400">Unusually high — these may be coincidental matches.</p>
+          <p class="text-xs text-surface-500">A backup is made automatically.</p>
         </div>
       </template>
     </ConfirmDialog>

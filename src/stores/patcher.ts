@@ -1,14 +1,14 @@
 import { defineStore } from "pinia";
-import {
-  SOURCE_16_9,
-  parseHex,
-  bytesToHex,
-  aspectToHex,
-} from "../utils/hex";
+import { SOURCE_16_9, parseHex, bytesToHex, aspectToHex } from "../utils/hex";
 import { loadSettings, saveSettings } from "../utils/settings";
 
 /** Max number of recently-opened executables to remember. */
 const MAX_RECENTS = 5;
+
+// Match-count thresholds for the patch dialog's severity tag. Internal constants,
+// not user settings — no UI exposes them and they aren't persisted.
+const MATCH_WARN_THRESHOLD = 5;
+const MATCH_HIGH_THRESHOLD = 17;
 
 /** Shape returned by the Rust `patch_exe` command. */
 export interface PatchResult {
@@ -83,8 +83,7 @@ export const usePatcherStore = defineStore("patcher", {
 
     effectiveSearchHex: (state): string => state.sourceHex,
 
-    effectiveReplaceHex: (state): string =>
-      aspectToHex(state.calcWidth, state.calcHeight),
+    effectiveReplaceHex: (state): string => aspectToHex(state.calcWidth, state.calcHeight),
 
     searchBytes(): number[] | null {
       return parseHex(this.effectiveSearchHex);
@@ -100,22 +99,27 @@ export const usePatcherStore = defineStore("patcher", {
       const r = this.replaceBytes;
       if (!s) return "Search bytes are not valid hex.";
       if (!r) return "Enter a valid target resolution.";
-      if (s.length !== r.length)
-        return `Search (${s.length} bytes) and replace (${r.length} bytes) must be the same length.`;
+      if (s.length !== r.length) return `Search (${s.length} bytes) and replace (${r.length} bytes) must be the same length.`;
       return null;
     },
     canPatch(): boolean {
       return !this.busy && this.validationError === null;
+    },
+
+    /** PrimeVue Tag severity for a scan's match count. */
+    matchSeverity() {
+      return (count: number): "secondary" | "warn" | "danger" => {
+        if (count >= MATCH_HIGH_THRESHOLD) return "danger";
+        if (count >= MATCH_WARN_THRESHOLD) return "warn";
+        return "secondary";
+      };
     },
   },
 
   actions: {
     /** Add/refresh an entry at the front of the recents list (deduped, capped). */
     addRecentFile(path: string, sourceHex: string) {
-      this.recentFiles = [
-        { path, sourceHex },
-        ...this.recentFiles.filter((r) => r.path !== path),
-      ].slice(0, MAX_RECENTS);
+      this.recentFiles = [{ path, sourceHex }, ...this.recentFiles.filter((r) => r.path !== path)].slice(0, MAX_RECENTS);
       this.persist();
     },
     /** Replace the recents list (e.g. after pruning missing files). */
@@ -149,9 +153,7 @@ export const usePatcherStore = defineStore("patcher", {
         ok: true,
         count: result.count,
         backupPath: result.backup_path,
-        message: `Replaced ${result.count} occurrence${
-          result.count === 1 ? "" : "s"
-        }.`,
+        message: `Replaced ${result.count} occurrence${result.count === 1 ? "" : "s"}.`,
       };
     },
     /** Return to the first-run state: clear saved settings and session state alike. */
