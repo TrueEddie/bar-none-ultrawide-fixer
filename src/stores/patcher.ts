@@ -109,7 +109,8 @@ export const usePatcherStore = defineStore("patcher", {
     /** PrimeVue Tag severity for a scan's match count. */
     matchSeverity() {
       return (count: number): "secondary" | "warn" | "danger" => {
-        if (count >= MATCH_HIGH_THRESHOLD) return "danger";
+        // Zero is a problem (nothing to patch); high counts risk coincidental matches.
+        if (count === 0 || count >= MATCH_HIGH_THRESHOLD) return "danger";
         if (count >= MATCH_WARN_THRESHOLD) return "warn";
         return "secondary";
       };

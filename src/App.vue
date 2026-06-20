@@ -291,16 +291,14 @@
     } finally {
       busy.value = false;
     }
-    // Only short-circuit when we actually confirmed there's nothing to patch.
-    if (matchKnown.value && matchCount.value === 0) {
-      store.setError("Pattern not found — the game may already be patched or uses a different default value.");
-      return;
-    }
+    // Nothing to patch when the scan found no matches — keep the dialog open so the
+    // user sees the count and reason, but hide the action and leave only Cancel.
+    const noMatches = matchKnown.value && matchCount.value === 0;
     confirm.require({
       group: "patch",
       header: "Confirm patch",
-      acceptProps: { label: "Patch", class: "text-white!" },
-      rejectProps: { label: "Cancel", severity: "secondary", text: true },
+      acceptProps: { label: "Patch", class: noMatches ? "hidden" : "text-white!" },
+      rejectProps: { label: noMatches ? "Close" : "Cancel", severity: "secondary", text: true },
       accept: () => doPatch(),
     });
   }
@@ -567,9 +565,10 @@
             <span>{{ store.prettyReplace() }}</span>
             <Tag v-if="matchKnown" :value="matchLabel" :severity="matchSeverity" class="ml-auto shrink-0 text-nowrap" />
           </div>
-          <p v-if="matchKnown && matchSeverity === 'warn'" class="text-xs text-amber-600 dark:text-amber-400">More matches than expected — double-check the search bytes.</p>
+          <p v-if="matchKnown && matchCount === 0" class="text-xs text-red-600 dark:text-red-400">Pattern not found — the game may already be patched or uses a different default value.</p>
+          <p v-else-if="matchKnown && matchSeverity === 'warn'" class="text-xs text-amber-600 dark:text-amber-400">More matches than expected — double-check the search bytes.</p>
           <p v-else-if="matchKnown && matchSeverity === 'danger'" class="text-xs text-red-600 dark:text-red-400">Unusually high — these may be coincidental matches.</p>
-          <p class="text-xs text-surface-500">A backup is made automatically.</p>
+          <p v-if="!(matchKnown && matchCount === 0)" class="text-xs text-surface-500">A backup is made automatically.</p>
         </div>
       </template>
     </ConfirmDialog>
