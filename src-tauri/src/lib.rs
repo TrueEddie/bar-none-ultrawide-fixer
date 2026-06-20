@@ -85,8 +85,11 @@ fn patch_exe(path: String, search: Vec<u8>, replace: Vec<u8>) -> Result<PatchRes
 
     let mut data = fs::read(p).map_err(|e| format!("Failed to read file: {e}"))?;
 
-    let count = count_occurrences(&data, &search);
-    if count == 0 {
+    // Apply the replacement in memory and let it report the count — no separate
+    // counting pass. Disk stays untouched until we know there's something to write,
+    // so a no-match call returns cleanly without leaving an orphan backup.
+    let replaced = replace_all(&mut data, &search, &replace);
+    if replaced == 0 {
         return Err(
             "Pattern not found — the game may already be patched or uses a different default value."
                 .into(),
@@ -109,13 +112,28 @@ fn patch_exe(path: String, search: Vec<u8>, replace: Vec<u8>) -> Result<PatchRes
     };
     fs::copy(p, &backup_path).map_err(|e| format!("Failed to create backup: {e}"))?;
 
-    let replaced = replace_all(&mut data, &search, &replace);
     fs::write(p, &data).map_err(|e| write_error_message("write the patched file", &e))?;
 
     Ok(PatchResult {
         count: replaced,
         backup_path: backup_path.to_string_lossy().into_owned(),
     })
+}
+
+/// Count occurrences of `search` in the file at `path` without writing anything.
+/// Backs the "scan / dry-run" flow: the UI calls this before patching to show how
+/// many matches a patch would make (and to sanity-check unusually high counts).
+#[tauri::command]
+fn scan_exe(path: String, search: Vec<u8>) -> Result<usize, String> {
+    if search.is_empty() {
+        return Err("Search pattern is empty.".into());
+    }
+    let p = Path::new(&path);
+    if !p.is_file() {
+        return Err(format!("File not found: {path}"));
+    }
+    let data = fs::read(p).map_err(|e| format!("Failed to read file: {e}"))?;
+    Ok(count_occurrences(&data, &search))
 }
 
 /// True if `name` is one of our timestamped backups for `prefix`
@@ -255,6 +273,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             patch_exe,
+            scan_exe,
             list_backups,
             restore_backup,
             get_exe_icon,
@@ -306,6 +325,27 @@ mod tests {
         let other = Error::new(ErrorKind::NotFound, "nope");
         let msg = write_error_message("write the patched file", &other);
         assert!(msg.contains("Failed to write the patched file"), "got: {msg}");
+    }
+
+    #[test]
+    fn scan_exe_counts_without_writing() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("barnone_scan_{}.bin", std::process::id()));
+        let original: Vec<u8> = vec![
+            0xAA, 0x39, 0x8E, 0xE3, 0x3F, 0xBB, 0x39, 0x8E, 0xE3, 0x3F, 0xCC,
+        ];
+        fs::write(&path, &original).unwrap();
+        let path_s = path.to_string_lossy().into_owned();
+
+        let n = scan_exe(path_s.clone(), vec![0x39, 0x8E, 0xE3, 0x3F]).unwrap();
+        assert_eq!(n, 2);
+        // The file is untouched by a scan.
+        assert_eq!(fs::read(&path).unwrap(), original);
+
+        // No match -> zero (the UI turns this into "pattern not found" guidance).
+        assert_eq!(scan_exe(path_s, vec![0x00, 0x11, 0x22, 0x33]).unwrap(), 0);
+
+        let _ = fs::remove_file(&path);
     }
 
     #[test]

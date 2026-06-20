@@ -11,6 +11,11 @@
 
 - **Windows:** grab `bar-none.exe`.
 
+> **Windows SmartScreen warning** — Because `bar-none.exe` isn't code-signed, the first
+> time you run it Windows may show **"Windows protected your PC."** Click **More info**,
+> then **Run anyway** to launch it. (Code signing requires a paid certificate; if you'd
+> rather not take our word for it, the source is right here — [build it yourself](#building-from-source).)
+
 - **Linux (beta):** grab the `…-beta.AppImage` (`chmod +x` it, then run) or the `…-beta.deb`. _Untested/experimental — if you encounter any problems, please open an issue._ For Proton/Wine games, point Bar None at the Windows `.exe` inside the game's prefix.
 
 If you find Bar None useful, you can support development:
