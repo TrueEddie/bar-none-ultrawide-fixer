@@ -13,8 +13,7 @@
 
 > **Windows SmartScreen warning** — Because `bar-none.exe` isn't code-signed, the first
 > time you run it Windows may show **"Windows protected your PC."** Click **More info**,
-> then **Run anyway** to launch it. (Code signing requires a paid certificate; if you'd
-> rather not take our word for it, the source is right here — [build it yourself](#building-from-source).)
+> then **Run anyway** to launch it. (Code signing requires a paid certificate)
 
 - **Linux (beta):** grab the `…-beta.AppImage` (`chmod +x` it, then run) or the `…-beta.deb`. _Untested/experimental — if you encounter any problems, please open an issue._ For Proton/Wine games, point Bar None at the Windows `.exe` inside the game's prefix.
 
@@ -85,8 +84,10 @@ safe.
    affected game uses. **Click the tag** to edit it inline for the rare game whose default
    differs; the ↺ button resets it back to 16:9. The chosen "from" bytes are remembered
    per-executable.
-5. **Patch executable** — review the confirmation dialog (file, search bytes, replace
-   bytes) and confirm.
+5. **Patch executable** — the confirmation dialog shows the file, search/replace bytes,
+   and **how many matches were found** in the exe, color-coded so you can spot an unusually
+   high count (possible coincidental matches) before writing. If nothing matches, it tells
+   you there instead of patching. Review and confirm.
 6. You'll see **"Replaced N occurrence(s)"** and the path of the backup that was created.
 
 Then launch the game and enjoy full-screen cutscenes.
